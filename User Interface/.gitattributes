@@ -1,0 +1,16 @@
+# Handle line endings automatically for files detected as text
+# and leave binary files untouched.
+* text=auto
+
+# Explicitly set default line endings to LF for all text files
+# to ensure consistency across different OS.
+# If you prefer CRLF for Windows, you can change this, 
+# but LF is standard for web development.
+*.js text eol=lf
+*.jsx text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.md text eol=lf
