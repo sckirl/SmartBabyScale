@@ -1,11 +1,16 @@
-import { useState } from "react";
-import Header from "./components/Header";
-import Dashboard from "./components/Dashboard";
-import PatientHistory from "./components/PatientHistory";
-import GrowthChart from "./components/GrowthChart";
-import Settings from "./components/Settings";
+'use client';
 
-export default function App() {
+import { useState } from "react";
+// Note: We need to adjust imports because 'src' alias might not be set up in tsconfig perfectly yet 
+// but based on my config paths: {"@/*": ["./*"]}, I should use absolute imports or relative.
+// I'll use relative to be safe as I haven't verified the alias resolution fully in practice yet.
+import Header from "../src/components/Header";
+import Dashboard from "../src/components/Dashboard";
+import PatientHistory from "../src/components/PatientHistory";
+import GrowthChart from "../src/components/GrowthChart";
+import Settings from "../src/components/Settings";
+
+export default function Home() {
   const [activeTab, setActiveTab] = useState("dashboard");
 
   const renderActiveComponent = () => {

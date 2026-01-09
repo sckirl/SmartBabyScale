@@ -1,4 +1,7 @@
+"use client";
+
 import { useState, useEffect, useRef } from "react";
+import { io } from "socket.io-client";
 import { Activity, Heart, Thermometer, Droplet, Video, AlertTriangle, TrendingUp, Weight, Ruler } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -19,6 +22,26 @@ export default function Dashboard() {
   const [spO2, setSpO2] = useState(96);
   const [temperature, setTemperature] = useState(36.8);
   const [riskScore, setRiskScore] = useState(15);
+
+  // Socket.io Connection for Real-time Python Data
+  useEffect(() => {
+    const socket = io();
+
+    socket.on('connect', () => {
+      console.log('Connected to WebSocket server');
+    });
+
+    socket.on('sensor_update', (data: any) => {
+      console.log('Received sensor update:', data);
+      if (data.type === 'length') {
+        setCurrentLength(data.value);
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   // Data historis untuk grafik - tetap stabil, hanya update saat ada data baru
   const [heartRateData, setHeartRateData] = useState<VitalDataPoint[]>(() => {
