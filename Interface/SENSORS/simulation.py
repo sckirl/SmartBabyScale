@@ -20,8 +20,8 @@ def disconnect():
 def main():
     try:
         # Connect to the local server
-        print("Attempting to connect to http://localhost:3000...")
-        sio.connect('http://localhost:3000')
+        print("Attempting to connect to https://smartbabyscale.onrender.com/:1000...")
+        sio.connect('https://smartbabyscale.onrender.com/:1000')
         
         while True:
             # Get input from user
