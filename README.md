@@ -17,6 +17,13 @@
 
 The system bridges the gap between hardware data collection and clinical decision-making, providing a unified dashboard for vital signs, growth tracking, and emergency alerts.
 
+---
+
+## Screenshots
+<img width="1862" height="932" alt="image" src="https://github.com/user-attachments/assets/58e82df6-1930-47ed-80fc-1f7a8e6c26bf" />
+<img width="1860" height="931" alt="image" src="https://github.com/user-attachments/assets/cadc9c31-3250-4dd8-ad7c-94ff5d4c851b" />
+
+
 ### 🌟 Key Features
 
 *   **⚡ Real-Time Monitoring:** Live streaming of vital signs (Heart Rate, SpO2, Temp) via WebSocket.
