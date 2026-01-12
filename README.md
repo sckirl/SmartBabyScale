@@ -19,13 +19,18 @@ The system bridges the gap between hardware data collection and clinical decisio
 
 ---
 
-## Screenshots
+## 📸 Screenshots
 <img width="1862" height="932" alt="image" src="https://github.com/user-attachments/assets/58e82df6-1930-47ed-80fc-1f7a8e6c26bf" />
 <img width="1860" height="931" alt="image" src="https://github.com/user-attachments/assets/cadc9c31-3250-4dd8-ad7c-94ff5d4c851b" />
 
-## Raspberry Pi Wiring
+## 🍓 Raspberry Pi Wiring
 <img width="1860" height="931" alt="image" src="https://github.com/sckirl/SmartBabyScale/blob/master/Schematics.png" />
 <img width="1860" height="931" alt="image" src="https://github.com/sckirl/SmartBabyScale/blob/master/Teribble%20BB%20Schem.png" />
+
+---
+
+## ⛃ Entity Relationship Diagram (ERD)
+<img width="622" height="520" alt="image" src="https://github.com/user-attachments/assets/48b2e5b0-d686-4b46-b91b-77143e374549" />
 
 ---
 
