@@ -1,10 +1,10 @@
-# GEMINI.md: EPOSREM UI/UX & Front-End Master Editor
+# GEMINI.md: SmartBabyScale UI/UX & Front-End Master Editor
 
 ## 1. Persona & Role
 Anda adalah seorang **Senior Full-Stack IoT Engineer** dengan spesialisasi pada ekosistem **Next.js 15+ (App Router)**, **Tailwind CSS**, **Node.js Custom Server**, dan **Python IoT Interfacing**. Anda memiliki keahlian dalam membangun sistem pemantauan medis *real-time* yang menghubungkan perangkat keras (sensor) dengan antarmuka web modern.
 
-## 2. Project Context: EPOSREM (Updated: Jan 2026)
-**EPOSREM** adalah aplikasi pemantauan neonatal berbasis IoT yang menggunakan metrik **SNAPPE-II** untuk memprediksi risiko kesehatan bayi secara non-invasif.
+## 2. Project Context: SmartBabyScale (Updated: Jan 2026)
+**SmartBabyScale** adalah aplikasi pemantauan neonatal berbasis IoT yang menggunakan metrik **SNAPPE-II** untuk memprediksi risiko kesehatan bayi secara non-invasif.
 
 ### Architecture Update (Migration Status: COMPLETE)
 Proyek ini telah berhasil dimigrasi dari React (Vite) ke **Next.js (App Router)** dengan arsitektur Hybrid WebSocket:
@@ -51,7 +51,7 @@ Untuk menjalankan full-stack environment (Frontend + IoT Sim):
     ```bash
     cd "Interface"
     npm run dev
-    # Running on http://localhost:3000
+    # Running on http://localhost:3777
     ```
 
 2.  **Terminal 2 (IoT Simulation):**

@@ -1,4 +1,4 @@
-# 👶 EPOSREM: Smart Neonatal Monitoring System
+# SmartBabyScale: Smart Neonatal Monitoring System
 
 ![Next.js](https://img.shields.io/badge/next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)
@@ -7,13 +7,13 @@
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 ![NodeJS](https://img.shields.io/badge/node.js-6DA55F?style=for-the-badge&logo=node.js&logoColor=white)
 
-> **"Electronic POSition & REspiratory Monitoring"** - A revolutionary non-invasive neonatal health monitoring system using SNAPPE-II metrics.
+> **SmartBabyScale** - A revolutionary non-invasive neonatal health monitoring system using SNAPPE-II metrics.
 
 ---
 
-## 🏥 About The Project
+## About The Project
 
-**EPOSREM** is a cutting-edge IoT application designed to assist medical professionals in the Neonatal Intensive Care Unit (NICU). By integrating precise hardware sensors with a modern real-time web interface, EPOSREM calculates the **SNAPPE-II (Score for Neonatal Acute Physiology-Perinatal Extension-II)** score to predict health risks in newborns without invasive procedures.
+**SmartBabyScale** is a cutting-edge IoT application designed to assist medical professionals in the Neonatal Intensive Care Unit (NICU). By integrating precise hardware sensors with a modern real-time web interface, SmartBabyScale calculates the **SNAPPE-II (Score for Neonatal Acute Physiology-Perinatal Extension-II)** score to predict health risks in newborns without invasive procedures.
 
 The system bridges the gap between hardware data collection and clinical decision-making, providing a unified dashboard for vital signs, growth tracking, and emergency alerts.
 
@@ -44,9 +44,9 @@ The system bridges the gap between hardware data collection and clinical decisio
 
 ---
 
-## 🛠️ Architecture & Tech Stack
+## Architecture & Tech Stack
 
-EPOSREM employs a Hybrid Architecture combining a robust Node.js server for real-time communication and a Next.js frontend for the user interface.
+SmartBabyScale employs a Hybrid Architecture combining a robust Node.js server for real-time communication and a Next.js frontend for the user interface.
 
 ### **Software Stack**
 
@@ -65,17 +65,17 @@ The system aggregates data from the following sensors (simulated in `SENSORS/sim
 
 | Component | Function | Precision |
 | :--- | :--- | :--- |
-| ⚖️ **HX711** | Weight Sensor | ±50 gram |
-| 📏 **HC-SR04** | Ultrasonic Length Sensor | Automated measurement |
-| 🌡️ **MLX90614** | Infrared Thermometer | Contactless temperature |
-| ❤️ **GY-MAX30102** | Pulse Oximeter | SpO2 & Heart Rate |
-| 📷 **Raspi Cam** | Visual Feed | Real-time baby monitoring |
+| **HX711** | Weight Sensor | ±50 gram |
+| **HC-SR04** | Ultrasonic Length Sensor | Automated measurement |
+| **MLX90614** | Infrared Thermometer | Contactless temperature |
+| **GY-MAX30102** | Pulse Oximeter | SpO2 & Heart Rate |
+| **Raspi Cam** | Visual Feed | Real-time baby monitoring |
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
-Follow these steps to set up the EPOSREM environment locally.
+Follow these steps to set up the SmartBabyScale environment locally.
 
 ### Prerequisites
 
@@ -87,8 +87,8 @@ Follow these steps to set up the EPOSREM environment locally.
 
 1.  **Clone the repository**
     ```bash
-    git clone https://github.com/your-username/EPOSREM.git
-    cd EPOSREM/Interface
+    git clone https://github.com/your-username/SmartBabyScale.git
+    cd SmartBabyScale/Interface
     ```
 
 2.  **Install Frontend Dependencies**
@@ -115,7 +115,7 @@ This starts the Next.js app and the Socket.io server.
 ```bash
 # Inside /Interface
 npm run dev
-# Server will start at http://localhost:3000
+# Server will start at http://localhost:3777
 ```
 
 **2. Start the Sensor Simulation (Terminal 2)**
@@ -129,15 +129,29 @@ python simulation.py
 
 ---
 
-## ☁️ Deployment
+## Deployment
 
-This project is configured for **Render.com** (or any platform supporting persistent Node.js processes).
+This project supports deployment to cloud platforms and self-hosted PaaS. Since the application requires persistent WebSocket connections (Socket.io) for real-time sensor updates, serverless hosting (such as Vercel) is not supported.
 
-*   **Root Directory:** `Interface`
-*   **Build Command:** `npm install && npm run build`
-*   **Start Command:** `npm start` (Runs `node server.js`)
+### Hosting on Dokploy (Self-Hosted PaaS)
 
-**Note:** Serverless platforms like Vercel are **not recommended** for the backend because they do not support the persistent WebSocket connections required for real-time monitoring.
+This project contains a [docker-compose.yml](file:///C:/pythonProjects/SmartBabyScale/SmartBabyScale/docker-compose.yml) and [Dockerfile](file:///C:/pythonProjects/SmartBabyScale/SmartBabyScale/Interface/Dockerfile) pre-configured for **Dokploy**:
+
+1. **Create Compose App**: Log in to your Dokploy dashboard, create a new project, and add a **Compose** application.
+2. **Repository Configuration**: Connect your Git repository and set the branch (e.g., `main`).
+3. **Configure Path**: Ensure the compose path points to `docker-compose.yml` at the repository root.
+4. **Environment Variables**:
+   - Set `NODE_ENV` to `production`
+   - Set `PORT` to `3777`
+5. **Port Routing**: In the Dokploy application settings, route your domain's HTTP/HTTPS traffic (port 80/443) to container port `3777`.
+6. **Deploy**: Click **Deploy**. Dokploy will pull the code, execute the multi-stage build, and run the container.
+
+### Hosting on Render.com
+
+1. Create a new **Web Service** on Render.
+2. Set the **Root Directory** to `Interface`.
+3. Set the **Build Command** to `npm install && npm run build`.
+4. Set the **Start Command** to `npm start` (which runs `node server.js`).
 
 ---
 

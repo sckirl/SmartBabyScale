@@ -368,7 +368,7 @@ export default function Dashboard() {
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-indigo-600" />
-                Wawasan Klinis EPOSREM
+                Wawasan Klinis SmartBabyScale
               </CardTitle>
             </CardHeader>
             <CardContent>

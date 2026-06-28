@@ -1,7 +1,7 @@
-# 🏛️ EPOSREM: Grand Orchestration Plan
+# SmartBabyScale: Grand Orchestration Plan
 
 ## 1. Project Vision & Architecture
-**EPOSREM (Electronic POSition & REspiratory Monitoring)** is a near real-time (< 500ms latency) neonatal monitoring system deployed on Edge Computing (Raspberry Pi/ESP32). It features an ML-powered (95% accuracy target) risk prediction model using the SNAPPE-II metric, a Next.js (App Router) interface, and a raw SQL database tailored for Indonesian health administration capabilities.
+**SmartBabyScale** is a near real-time (< 500ms latency) neonatal monitoring and weight system deployed on Edge Computing (Raspberry Pi/ESP32). It features an ML-powered (95% accuracy target) risk prediction model using the SNAPPE-II metric, a Next.js (App Router) interface, and a raw SQL database tailored for Indonesian health administration capabilities.
 
 ## 2. Agent Roles & Parallel Workflow
 

@@ -1,5 +1,5 @@
-# 🔬 IEEE Researcher: Paper Review Notes
-**Project:** EPOSREM Research Paper
+# IEEE Researcher: Paper Review Notes
+**Project:** SmartBabyScale Research Paper
 **Goal:** Minimal yet impactful changes to satisfy IEEE reviewer formatting requirements based on provided examples.
 
 ## 📐 Structural & Formatting Fixes

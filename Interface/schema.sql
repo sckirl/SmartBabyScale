@@ -1,8 +1,8 @@
--- EPOSREM Database Schema (Raw SQL)
+-- SmartBabyScale Database Schema (Raw SQL)
 -- Optimized for Indonesian Health Administration (MySQL)
 
-CREATE DATABASE IF NOT EXISTS eposrem_db;
-USE eposrem_db;
+CREATE DATABASE IF NOT EXISTS smartbabyscale_db;
+USE smartbabyscale_db;
 
 -- 1. User Management (Basic Auth)
 CREATE TABLE IF NOT EXISTS users (

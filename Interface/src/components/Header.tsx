@@ -35,7 +35,7 @@ export default function Header({ activeTab, setActiveTab }: HeaderProps) {
         {/* Logo */}
         <div className="flex items-center space-x-2">
           <Activity className="h-8 w-8 text-blue-600" />
-          <span className="text-xl font-semibold text-gray-900">EPOSREM</span>
+          <span className="text-xl font-semibold text-gray-900">SmartBabyScale</span>
         </div>
 
         {/* Desktop Navigation */}

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "EPOSREM - Neonatal Monitoring",
+  title: "SmartBabyScale - Neonatal Monitoring",
   description: "IoT Based Neonatal Monitoring System",
 };
 

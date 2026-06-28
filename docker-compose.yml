@@ -1,0 +1,27 @@
+# ==========================================
+# SmartBabyScale - Docker Compose Configuration
+# Production-ready compose configuration compatible with Dokploy PaaS
+# ==========================================
+
+version: '3.8'
+
+services:
+  web:
+    image: smartbabyscale:latest
+    build:
+      context: ./Interface
+      dockerfile: Dockerfile
+    container_name: smartbabyscale_web
+    restart: always
+    ports:
+      - "3777:3777"
+    environment:
+      - NODE_ENV=production
+      - PORT=3777
+      - NEXT_TELEMETRY_DISABLED=1
+      # Add other config or environment variables here if needed
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

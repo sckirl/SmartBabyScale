@@ -41,7 +41,7 @@ export default function Settings() {
               <Label htmlFor="device-id">ID Perangkat</Label>
               <Input
                 id="device-id"
-                value="EPOSREM-IOT-001"
+                value="SmartBabyScale-IOT-001"
                 readOnly
                 className="bg-gray-50"
               />
@@ -402,7 +402,7 @@ export default function Settings() {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
-              <p className="text-muted-foreground">Versi EPOSREM</p>
+              <p className="text-muted-foreground">Versi SmartBabyScale</p>
               <p className="font-medium">v3.2.1</p>
             </div>
             <div>

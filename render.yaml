@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: eposrem-ui
+    name: smartbabyscale-ui
     env: node
     plan: free
     rootDir: Interface

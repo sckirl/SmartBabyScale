@@ -5,7 +5,7 @@ const { Server } = require("socket.io");
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.NODE_ENV !== 'production' ? 'localhost' : '0.0.0.0';
-const port = parseInt(process.env.PORT || '3000', 10);
+const port = parseInt(process.env.PORT || '3777', 10);
 // when using middleware `hostname` and `port` must be provided below
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
