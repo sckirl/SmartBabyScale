@@ -11,11 +11,41 @@
 
 ---
 
-## About The Project
+## About The Project: Vision & Purpose
 
-**SmartBabyScale** is a cutting-edge IoT application designed to assist medical professionals in the Neonatal Intensive Care Unit (NICU). By integrating precise hardware sensors with a modern real-time web interface, SmartBabyScale calculates the **SNAPPE-II (Score for Neonatal Acute Physiology-Perinatal Extension-II)** score to predict health risks in newborns without invasive procedures.
+**SmartBabyScale** is a cutting-edge IoT application designed to assist medical professionals in the Neonatal Intensive Care Unit (NICU). 
+The core vision of this project is to transform a routine procedure—weighing a newborn—into a comprehensive, non-invasive diagnostic checkpoint. Rather than serving as a long-stay continuous monitor (like a smart bed), it functions precisely as a scale. When a nurse places a baby on the scale for a routine check, the system instantly aggregates physical measurements and dynamically integrates them with clinical lab data to predict the risk of neonatal clinical instability.
 
-The system bridges the gap between hardware data collection and clinical decision-making, providing a unified dashboard for vital signs, growth tracking, and emergency alerts.
+---
+
+## 🔬 Research Methodologies
+
+The predictive engine of SmartBabyScale is built upon the **SNAPPE-II (Score for Neonatal Acute Physiology-Perinatal Extension-II)** framework, a globally validated clinical scoring system used to assess illness severity and predict mortality in NICUs.
+
+Our methodology leverages real-world clinical data rather than theoretical mocks:
+*   **Data Sourcing:** The risk models are trained exclusively on authentic clinical data extracted from the **MIMIC-III** (Medical Information Mart for Intensive Care) database. 
+*   **Feature Engineering:** We extracted 7,880 neonatal records, isolating 14 distinct features. This includes 9 hardware-measurable features (e.g., weight, length, surface temperature, heart rate, SpO2) and 5 clinical/lab parameters (e.g., Apgar score, serum pH, PO2/FiO2 ratio).
+*   **Dynamic Updating:** The system is designed for asynchronous clinical environments. If certain lab results (like Apgar scores) are not yet available when the baby is placed on the scale, the prediction engine natively handles the missing values or utilizes baseline demographic defaults, dynamically updating the risk probability the moment the nurse inputs the missing data.
+
+---
+
+## 🧠 Machine Learning Approach & Architecture
+
+To deploy a highly accurate, explainable, and low-latency model to an edge device (Raspberry Pi), we designed a specific tabular machine learning pipeline (`SmartBabyScale_Training.ipynb`). This approach addresses common conference questions regarding model choice, explainability, and hardware constraints.
+
+### 1. Primary Model: XGBoost (Extreme Gradient Boosting)
+Tree-based models are the gold standard for medical tabular data. We utilize `XGBClassifier` as our primary prediction engine for several critical reasons:
+*   **Native Missing Data Handling:** In a fast-paced NICU, data is often incomplete. XGBoost natively learns the optimal branching direction for `NaN` values. If a nurse hasn't inputted an Apgar score yet, the model won't crash or require clunky statistical imputation; it smoothly infers the risk based on historical MIMIC-III missingness patterns.
+*   **Clinical Explainability (Feature Importance):** A "black-box" model is dangerous in healthcare. XGBoost provides instantaneous Feature Importance weights. When the UI flags a baby as "High Risk," it can explicitly explain *why* (e.g., "Risk primarily driven by low temperature and low birth weight"), allowing nurses to make targeted interventions.
+*   **Scale Invariance:** XGBoost does not require feature scaling, meaning the raw sensor data (e.g., weight in grams vs. pH in decimals) can be fed directly into the model without preprocessing overhead.
+
+### 2. Secondary Model: Support Vector Machine (SVM)
+As a comparative baseline, we also train an SVM using a Radial Basis Function (RBF) kernel. 
+*   **Non-linear Boundaries:** SVMs are excellent at drawing complex boundaries in low-dimensional spaces. 
+*   **Scaling Requirement:** Because SVMs are distance-based, this pipeline introduces a `StandardScaler` to ensure physiological values with large magnitudes (like heart rate) don't mathematically overpower smaller decimals (like serum pH). 
+
+### Why avoid Deep Learning (Neural Networks)?
+While an MLP (Multi-Layer Perceptron) could be used, deep learning architectures introduce unnecessary bloat for a 14-feature tabular dataset. They act as opaque black boxes (lacking feature importance), require strict scaling, and consume significantly more RAM—making them suboptimal for a Raspberry Pi edge device compared to the highly efficient, sub-millisecond inference of an XGBoost ensemble.
 
 ---
 

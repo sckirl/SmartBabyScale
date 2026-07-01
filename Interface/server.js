@@ -44,6 +44,12 @@ app.prepare().then(() => {
       io.emit('sensor_update', data);
     });
 
+    // Relay demographics updates from frontend to Python edge client
+    socket.on('demographics_update', (data) => {
+      console.log('Relaying demographics update:', data);
+      io.emit('demographics_update', data);
+    });
+
     socket.on('disconnect', () => {
       console.log('Client disconnected');
     });

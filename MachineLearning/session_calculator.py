@@ -14,26 +14,27 @@ class SessionTracker:
     real-time clinical risks (SNAPPE-II score, SVM/MLP model predictions).
     """
     
-    def __init__(self, patient_id, birth_weight_g, gestational_age_weeks, sga=0, apgar_score_5min=9):
+    def __init__(self, patient_id=9999, birth_weight_g=3100.0, gestational_age_weeks=38, apgar_score_5min=9):
         """
         Initializes a new monitoring session for a neonate.
         
         Parameters:
-        - patient_id: Unique medical record ID or patient number.
-        - birth_weight_g: The recorded weight of the baby at birth (grams).
-        - gestational_age_weeks: The gestational age at birth (weeks).
-        - sga: Small for Gestational Age status (1 = True, 0 = False). Default is 0.
+        - patient_id: Unique medical record ID or patient number. Default is 9999.
+        - birth_weight_g: The recorded weight of the baby at birth (grams). Default is 3100.0.
+        - gestational_age_weeks: The gestational age at birth (weeks). Default is 38.
         - apgar_score_5min: 5-minute Apgar score. Default is 9 (normal).
         """
         self.patient_id = patient_id
         
-        # Demographic & Baseline Clinical Variables (Constants for this patient session)
+        # Demographic & Baseline Clinical Variables (Constants for this patient session, but can be updated)
         self.birth_weight_g = float(birth_weight_g)
         self.gestational_age_weeks = int(gestational_age_weeks)
-        self.sga = int(sga)
         self.apgar_score_5min = int(apgar_score_5min)
         
-        # Physiological Clinical Variables (can be inputted or updated periodically)
+        # Automatically compute SGA based on Fenton curves
+        self.sga = self.calculate_sga()
+        
+        # Physiological Clinical Variables (can be inputted or updated periodically if available)
         self.mean_blood_pressure = 35.0         # Default normal (mmHg)
         self.lowest_serum_ph = 7.35             # Default normal
         self.po2_fio2_ratio = 3.20              # Default normal (not ventilated / healthy)
@@ -43,6 +44,9 @@ class SessionTracker:
         # Real-time Sensor Streams & Aggregates
         # Weight Sensor (HX711)
         self.current_weight_g = float(birth_weight_g)
+        
+        # Length Sensor (HC-SR04)
+        self.current_length_cm = 48.0
         
         # Temperature Sensor (MLX90614)
         self.current_temp_c = 36.5
@@ -58,21 +62,62 @@ class SessionTracker:
         # Count of received sensor packets
         self.packet_count = 0
         
-    def update_sensors(self, weight_grams=None, temperature_celsius=None, heart_rate_bpm=None, spo2_percent=None):
+    def calculate_sga(self):
         """
-        Updates session statistics with incoming real-time sensor measurements.
+        Computes whether the baby is Small for Gestational Age (SGA) using 
+        Fenton growth chart 10th percentile thresholds for birth weight and gestational age.
+        """
+        bw = self.birth_weight_g
+        ga = self.gestational_age_weeks
         
-        Parameters:
-        - weight_grams: Measured weight from HX711 scale.
-        - temperature_celsius: Measured temperature from MLX90614.
-        - heart_rate_bpm: Measured heart rate from GY-MAX30102.
-        - spo2_percent: Measured SpO2 from GY-MAX30102.
+        if ga <= 24 and bw < 550: return 1
+        elif ga == 25 and bw < 650: return 1
+        elif ga == 26 and bw < 750: return 1
+        elif ga == 27 and bw < 850: return 1
+        elif ga == 28 and bw < 950: return 1
+        elif ga == 29 and bw < 1050: return 1
+        elif ga == 30 and bw < 1200: return 1
+        elif ga == 31 and bw < 1350: return 1
+        elif ga == 32 and bw < 1500: return 1
+        elif ga == 33 and bw < 1700: return 1
+        elif ga == 34 and bw < 1900: return 1
+        elif ga == 35 and bw < 2100: return 1
+        elif ga == 36 and bw < 2300: return 1
+        elif ga == 37 and bw < 2500: return 1
+        elif ga == 38 and bw < 2700: return 1
+        elif ga == 39 and bw < 2850: return 1
+        elif ga == 40 and bw < 3000: return 1
+        elif ga >= 41 and bw < 3100: return 1
+        return 0
+
+    def update_demographics(self, birth_weight_g=None, gestational_age_weeks=None, apgar_score_5min=None):
+        """
+        Dynamically updates demographic baselines. 
+        Recalculates SGA automatically if weight or gestational age changes.
+        """
+        if birth_weight_g is not None:
+            self.birth_weight_g = float(birth_weight_g)
+        if gestational_age_weeks is not None:
+            self.gestational_age_weeks = int(gestational_age_weeks)
+        if apgar_score_5min is not None:
+            self.apgar_score_5min = int(apgar_score_5min)
+            
+        # Re-evaluate SGA classification
+        self.sga = self.calculate_sga()
+
+    def update_sensors(self, weight_grams=None, length_cm=None, temperature_celsius=None, heart_rate_bpm=None, spo2_percent=None):
+        """
+        Updates session statistics with incoming real-time sensor measurements from the scale.
         """
         self.packet_count += 1
         
         # Update Weight
         if weight_grams is not None:
             self.current_weight_g = float(weight_grams)
+            
+        # Update Length
+        if length_cm is not None:
+            self.current_length_cm = float(length_cm)
             
         # Update Temperature and track the lowest recorded temperature (required for SNAPPE-II)
         if temperature_celsius is not None:
@@ -97,14 +142,7 @@ class SessionTracker:
 
     def set_clinical_inputs(self, mean_blood_pressure=None, lowest_serum_ph=None, po2_fio2_ratio=None, urine_output_ml_kg_hr=None, seizures=None):
         """
-        Updates clinical inputs which are not directly readable from scale/oximeter sensors.
-        
-        Parameters:
-        - mean_blood_pressure: Mean blood pressure in mmHg.
-        - lowest_serum_ph: Lowest blood gas pH.
-        - po2_fio2_ratio: PaO2/FiO2 ratio.
-        - urine_output_ml_kg_hr: Urine output rate.
-        - seizures: Presence of multiple seizures (1 or 0).
+        Updates clinical inputs which are not directly readable from scale sensors.
         """
         if mean_blood_pressure is not None:
             self.mean_blood_pressure = float(mean_blood_pressure)
@@ -192,27 +230,31 @@ class SessionTracker:
 
     def get_feature_vector(self):
         """
-        Assembles the physiological and demographic variables into a dictionary matching
-        the trained machine learning model feature columns.
+        Assembles variables into a dictionary matching all possible features.
+        Supports both the scale-only 9 features and the full 12 features.
         """
         return {
             'birth_weight_g': self.birth_weight_g,
             'gestational_age_weeks': self.gestational_age_weeks,
             'sga': self.sga,
             'apgar_score_5min': self.apgar_score_5min,
-            'mean_blood_pressure': self.mean_blood_pressure,
+            'current_weight_g': self.current_weight_g,
+            'current_length_cm': self.current_length_cm,
             'lowest_temperature_celsius': self.lowest_temp_c,
+            'avg_heart_rate_bpm': self.get_avg_heart_rate(),
+            'lowest_spo2_percent': self.get_lowest_spo2(),
+            
+            # Clinical inputs (can be updated or default to normal values)
+            'mean_blood_pressure': self.mean_blood_pressure,
             'po2_fio2_ratio': self.po2_fio2_ratio,
             'lowest_serum_ph': self.lowest_serum_ph,
             'seizures': self.seizures,
-            'urine_output_ml_kg_hr': self.urine_output_ml_kg_hr,
-            'avg_heart_rate_bpm': self.get_avg_heart_rate(),
-            'lowest_spo2_percent': self.get_lowest_spo2()
+            'urine_output_ml_kg_hr': self.urine_output_ml_kg_hr
         }
 
     def predict_risk(self, scaler, svm_model, mlp_model, feature_cols):
         """
-        Uses pre-trained SVM and MLP models to estimate mortality risk and classification.
+        Uses pre-trained SVM and MLP models to estimate clinical risk levels and outcomes.
         
         Parameters:
         - scaler: The trained StandardScaler object.
@@ -256,11 +298,11 @@ class SessionTracker:
             'snappe_score': snappe_score,
             'risk_level': risk_level,
             'svm': {
-                'mortality_probability': round(svm_prob, 4),
+                'instability_probability': round(svm_prob, 4),
                 'outcome_prediction': svm_class
             },
             'mlp': {
-                'mortality_probability': round(mlp_prob, 4),
+                'instability_probability': round(mlp_prob, 4),
                 'outcome_prediction': mlp_class
             },
             'accuracy_warning': accuracy_warning,
