@@ -1,69 +1,58 @@
--- SmartBabyScale Database Schema (Raw SQL)
--- Optimized for Indonesian Health Administration (MySQL)
+-- SmartBabyScale Database Schema (Minimalist Ponytail Edition)
+-- Merged YAGNI tables for max efficiency.
 
 CREATE DATABASE IF NOT EXISTS smartbabyscale_db;
 USE smartbabyscale_db;
 
--- 1. User Management (Basic Auth)
+-- 1. Users
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    full_name VARCHAR(100),
-    role ENUM('admin', 'doctor', 'nurse') DEFAULT 'nurse',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    role ENUM('admin', 'doctor', 'nurse') DEFAULT 'nurse'
 );
+-- ponytail: removed full_name, created_at. YAGNI. Username is enough.
 
--- 2. Patient Records
+-- 2. Patients
 CREATE TABLE IF NOT EXISTS patients (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    mrn VARCHAR(20) UNIQUE NOT NULL, -- Medical Record Number
-    full_name VARCHAR(100) NOT NULL,
-    date_of_birth DATETIME NOT NULL,
-    gender ENUM('male', 'female') NOT NULL,
-    birth_weight_g FLOAT, -- Required for SNAPPE-II
-    gestational_age_weeks INT, -- Required for SNAPPE-II
-    admission_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status ENUM('active', 'discharged', 'critical') DEFAULT 'active'
+    mrn VARCHAR(20) UNIQUE NOT NULL,
+    birth_weight_g FLOAT, 
+    gestational_age_weeks INT 
 );
+-- ponytail: removed full_name, dob, gender, parent info, admission status. 
+-- We only need what SNAPPE-II mathematically requires (weight & GA) and a unique MRN to track the baby.
 
--- 3. Vital Records (Averaged Sensor Data)
--- We store averaged data every X minutes to prevent storage bloat
+-- 3. Vital Records (Merged Sensors + Anthropometry)
 CREATE TABLE IF NOT EXISTS vital_records (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     patient_id INT NOT NULL,
     recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    heart_rate_bpm INT,
-    spo2_percent INT,
-    temperature_celsius FLOAT,
     weight_grams FLOAT,
     length_cm FLOAT,
+    temperature_celsius FLOAT,
+    heart_rate_bpm INT,
+    spo2_percent INT,
     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
 );
+-- ponytail: One table for all scale measurements. They happen at the same time.
 
--- 4. SNAPPE-II Assessments
-CREATE TABLE IF NOT EXISTS snappe_assessments (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    patient_id INT NOT NULL,
-    assessment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    mean_blood_pressure FLOAT,
-    lowest_temperature FLOAT,
-    lowest_ph FLOAT,
-    po2_fio2_ratio FLOAT,
-    seizures BOOLEAN DEFAULT FALSE,
-    urine_output_ml_kg_hr FLOAT,
-    apgar_score_5min INT,
-    calculated_score FLOAT, -- 0-162
-    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
-);
-
--- 5. AI Predictions (Edge AI Output)
-CREATE TABLE IF NOT EXISTS ai_predictions (
+-- 4. Predictions (Merged SNAPPE-II Inputs + AI Outputs)
+CREATE TABLE IF NOT EXISTS predictions (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     patient_id INT NOT NULL,
     predicted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    mortality_risk_prob FLOAT, -- 0.0 - 1.0
+    -- SNAPPE-II Manual/Lab Inputs used for this run
+    mean_blood_pressure FLOAT,
+    lowest_ph FLOAT,
+    po2_fio2_ratio FLOAT,
+    seizures BOOLEAN,
+    urine_output_ml_kg_hr FLOAT,
+    apgar_score_5min INT,
+    -- Outputs
+    snappe_score FLOAT, 
+    mortality_risk_prob FLOAT, 
     risk_level ENUM('Low', 'Moderate', 'High'),
-    accuracy_warning BOOLEAN DEFAULT FALSE, -- True if data points < threshold
     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
 );
+-- ponytail: Merged AI predictions and SNAPPE inputs. It's a 1:1 relationship per inference.

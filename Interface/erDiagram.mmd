@@ -3,107 +3,48 @@ id: 22e4e7b4-6f41-4f97-840d-00233f48d050
 ---
 erDiagram
     %% Relations
-    USERS ||--o{ ACTIVITY_LOGS : "logs"
-    USERS ||--o{ CLINICAL_NOTES : "writes"
     PATIENTS ||--o{ VITAL_RECORDS : "has vitals"
-    PATIENTS ||--o{ ANTHROPOMETRY_RECORDS : "has growth data"
-    PATIENTS ||--o{ SNAPPE_II_ASSESSMENTS : "evaluated for"
-    PATIENTS ||--o{ AI_PREDICTIONS : "predicted risk"
-    PATIENTS ||--o{ CLINICAL_NOTES : "has notes"
-    PATIENTS ||--o{ ACTIVITY_LOGS : "history"
+    PATIENTS ||--o{ PREDICTIONS : "predicted risk"
 
     %% Entities
     USERS {
         int id PK
         string username
-        string email
         string password_hash
-        string full_name
         enum role "admin, doctor, nurse"
-        datetime created_at
     }
 
     PATIENTS {
         int id PK
         string mrn "Medical Record Number (Unique)"
-        string full_name
-        datetime date_of_birth
-        enum gender "male, female"
         float birth_weight_g "Important for SNAPPE-II"
         int gestational_age_weeks "Important for SNAPPE-II (SGA)"
-        string parent_name
-        string contact_number
-        datetime admission_date
-        enum status "active, discharged, critical"
-        datetime created_at
     }
 
-    %% High Frequency Sensor Data (Real-time)
+    %% High Frequency & Anthropometry (Real-time Scale Data)
     VITAL_RECORDS {
         bigint id PK
         int patient_id FK
         datetime recorded_at "Timestamp"
-        int heart_rate_bpm "Sensor: GY-MAX30102"
-        int spo2_percent "Sensor: GY-MAX30102"
-        float temperature_celsius "Sensor: MLX90614 (Infrared)"
-        float perfusion_index "Derived from Oximeter"
-    }
-
-    %% Low Frequency Sensor Data (Growth)
-    ANTHROPOMETRY_RECORDS {
-        bigint id PK
-        int patient_id FK
-        datetime recorded_at
         float weight_grams "Sensor: HX711"
         float length_cm "Sensor: HC-SR04"
-        float head_circumference_cm "Manual/Other"
+        float temperature_celsius "Sensor: MLX90614 (Infrared)"
+        int heart_rate_bpm "Sensor: GY-MAX30102"
+        int spo2_percent "Sensor: GY-MAX30102"
     }
 
-    %% SNAPPE-II Specific Inputs (Hybrid: Sensors + Lab/Manual)
-    SNAPPE_II_ASSESSMENTS {
+    %% AI Model Outputs & SNAPPE-II Inputs
+    PREDICTIONS {
         bigint id PK
         int patient_id FK
-        datetime assessment_window_start
-        datetime assessment_window_end
-        float mean_blood_pressure "Manual/Ext Sensor"
-        float lowest_temperature "Derived from VITAL_RECORDS"
-        float lowest_ph "Lab Result"
-        float po2_fio2_ratio "Lab Result"
-        boolean multiple_seizures "Clinical Obs"
-        float urine_output_ml_kg_hr "Clinical Obs"
-        boolean small_for_gestational_age "Derived from Patient Info"
-        int apgar_score_5min "Clinical Obs"
-        float calculated_score "0-162"
-        datetime created_at
-    }
-
-    %% AI Model Outputs
-    AI_PREDICTIONS {
-        bigint id PK
-        int patient_id FK
-        int snappe_assessment_id FK "Link to input data"
         datetime predicted_at
-        float mortality_risk_probability "0.0 - 1.0 (MLP Output)"
-        enum risk_classification "Low, Moderate, High (SVM Output)"
-        text model_version "v1.0"
-        json contributing_factors "Explainability data"
-    }
-
-    ACTIVITY_LOGS {
-        bigint id PK
-        int patient_id FK
-        enum activity_type "feeding, sleep, diaper, medication, sensor_calibration"
-        datetime timestamp
-        text details
-        int logged_by_user_id FK
-    }
-
-    CLINICAL_NOTES {
-        int id PK
-        int patient_id FK
-        int author_user_id FK
-        enum note_type "doctor_note, ai_alert, system_log"
-        text content
-        enum severity "info, warning, critical"
-        datetime created_at
+        float mean_blood_pressure "SNAPPE Input"
+        float lowest_ph "SNAPPE Input"
+        float po2_fio2_ratio "SNAPPE Input"
+        boolean seizures "SNAPPE Input"
+        float urine_output_ml_kg_hr "SNAPPE Input"
+        int apgar_score_5min "SNAPPE Input"
+        float snappe_score "0-162"
+        float mortality_risk_prob "0.0 - 1.0"
+        enum risk_level "Low, Moderate, High"
     }
