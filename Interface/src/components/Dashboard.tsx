@@ -45,6 +45,9 @@ export default function Dashboard() {
   const [mlAccuracyWarning, setMlAccuracyWarning] = useState(true);
   const [packetCount, setPacketCount] = useState(0);
 
+  const [isDemoMode, setIsDemoMode] = useState(true);
+  const lastUpdateRef = useRef<number>(0);
+
   const socketRef = useRef<any>(null);
 
   // Socket.io Connection & Bi-directional Event Handling
@@ -69,6 +72,8 @@ export default function Dashboard() {
 
     socket.on('sensor_update', (data: any) => {
       console.log('Received sensor update:', data);
+      lastUpdateRef.current = Date.now();
+      setIsDemoMode(false);
       if (data.type === 'length') {
         setCurrentLength(data.value);
       } else if (data.type === 'prediction_update') {
@@ -104,6 +109,8 @@ export default function Dashboard() {
     };
   }, []);
 
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
   // Update demographic values and emit demographics_update event to trigger re-prediction
   const handleDemographicChange = (field: string, value: number) => {
     let nextBW = birthWeight;
@@ -124,14 +131,17 @@ export default function Dashboard() {
     const nextSGA = calculateSGA(nextBW, nextGA);
     setSga(nextSGA);
 
-    // Emit to custom Node custom server, which relays to python edge tracker
-    if (socketRef.current && socketRef.current.connected) {
-      socketRef.current.emit('demographics_update', {
-        birth_weight_g: nextBW,
-        gestational_age_weeks: nextGA,
-        apgar_score_5min: nextApg
-      });
-    }
+    // ponytail: One-liner debounce to prevent WebSocket flooding when dragging sliders
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      if (socketRef.current && socketRef.current.connected) {
+        socketRef.current.emit('demographics_update', {
+          birth_weight_g: nextBW,
+          gestational_age_weeks: nextGA,
+          apgar_score_5min: nextApg
+        });
+      }
+    }, 300);
   };
 
   // Data historis untuk grafik - tetap stabil, hanya update saat ada data baru
@@ -171,9 +181,17 @@ export default function Dashboard() {
     }));
   });
 
-  // Simulate real-time data updates
+  // Simulate real-time data updates and check demo mode
   useEffect(() => {
+    const demoCheckInterval = setInterval(() => {
+      if (Date.now() - lastUpdateRef.current > 5000) {
+        setIsDemoMode(true);
+      }
+    }, 2000);
+
     const interval = setInterval(() => {
+      if (!isDemoMode) return; // ponytail: simple guard avoids duplicating logic
+
       const now = new Date();
       const timeLabel = now.toLocaleTimeString('id-ID', { 
         hour: '2-digit', 
@@ -196,8 +214,11 @@ export default function Dashboard() {
       setTempData(prev => [...prev.slice(1), { time: timeLabel, value: newTemp }]);
     }, 2000); // Update setiap 2 detik
 
-    return () => clearInterval(interval);
-  }, [heartRate, spO2, temperature]);
+    return () => {
+      clearInterval(interval);
+      clearInterval(demoCheckInterval);
+    };
+  }, [heartRate, spO2, temperature, isDemoMode]);
 
   // Risk level styling helpers
   const getRiskLevelStyles = (level: string) => {
@@ -216,15 +237,27 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Top Alert Banner */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start space-x-3">
-        <Activity className="h-5 w-5 text-blue-600 mt-0.5" />
-        <div>
-          <h3 className="font-medium text-blue-900">Timbangan Pintar Terhubung</h3>
-          <p className="text-sm text-blue-700">
-            Letakkan bayi pada timbangan. Masukkan riwayat lahir di panel kanan untuk clearance vaksinasi instan.
-          </p>
+      {isDemoMode ? (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start space-x-3">
+          <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
+          <div>
+            <h3 className="font-medium text-yellow-900">Mode Demonstrasi (Raspberry Pi Tidak Terhubung)</h3>
+            <p className="text-sm text-yellow-700">
+              Sensor fisik tidak terdeteksi (data tidak mengalir). Dasbor menggunakan data simulasi dinamis.
+            </p>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start space-x-3">
+          <Activity className="h-5 w-5 text-blue-600 mt-0.5" />
+          <div>
+            <h3 className="font-medium text-blue-900">Timbangan Pintar Terhubung</h3>
+            <p className="text-sm text-blue-700">
+              Letakkan bayi pada timbangan. Masukkan riwayat lahir di panel kanan untuk clearance vaksinasi instan.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Main Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

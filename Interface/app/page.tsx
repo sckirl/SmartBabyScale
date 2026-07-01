@@ -13,26 +13,17 @@ import Settings from "../src/components/Settings";
 export default function Home() {
   const [activeTab, setActiveTab] = useState("dashboard");
 
-  const renderActiveComponent = () => {
-    switch (activeTab) {
-      case "dashboard":
-        return <Dashboard />;
-      case "history":
-        return <PatientHistory />;
-      case "growth":
-        return <GrowthChart />;
-      case "settings":
-        return <Settings />;
-      default:
-        return <Dashboard />;
-    }
-  };
+  // ponytail: Removing the switch statement. 
+  // We will mount all tabs and use CSS hidden to preserve the Dashboard's WebSocket state when navigating.
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header activeTab={activeTab} setActiveTab={setActiveTab} />
       <main className="max-w-7xl mx-auto px-4 py-6">
-        {renderActiveComponent()}
+        <div className={activeTab === "dashboard" ? "block" : "hidden"}><Dashboard /></div>
+        <div className={activeTab === "history" ? "block" : "hidden"}><PatientHistory /></div>
+        <div className={activeTab === "growth" ? "block" : "hidden"}><GrowthChart /></div>
+        <div className={activeTab === "settings" ? "block" : "hidden"}><Settings /></div>
       </main>
     </div>
   );

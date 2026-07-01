@@ -163,6 +163,31 @@ python simulation.py
 
 ---
 
+## 🗄️ Database Setup & Connection
+
+The project uses a lean MySQL database connected via `mysql2`. For local development, we use Docker to spin up a MySQL container that is automatically seeded with our exact `schema.sql`.
+
+### Starting the Database
+To start the database on your Mac, open a terminal in the root directory of this repository and run:
+```bash
+docker-compose up -d db
+```
+*(This will pull the MySQL image, map port `3306` to your Mac, and inject `schema.sql` into the container).*
+
+### How to View the Tables (GUI Connection)
+Because we mapped port `3306` to your localhost, you can easily view and manage your data using any database GUI client (like **TablePlus**, **DBeaver**, or **DataGrip**). 
+
+Use these credentials to connect:
+*   **Host:** `127.0.0.1` (or `localhost`)
+*   **Port:** `3306`
+*   **Username:** `root`
+*   **Password:** `smartbaby`
+*   **Database:** `smartbabyscale_db`
+
+Once connected, you will see the 4 minimalist tables (`users`, `patients`, `vital_records`, `predictions`) ready to receive data!
+
+---
+
 ## Deployment
 
 This project supports deployment to cloud platforms and self-hosted PaaS. Since the application requires persistent WebSocket connections (Socket.io) for real-time sensor updates, serverless hosting (such as Vercel) is not supported.

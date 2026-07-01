@@ -19,9 +19,32 @@ services:
       - NODE_ENV=production
       - PORT=3777
       - NEXT_TELEMETRY_DISABLED=1
-      # Add other config or environment variables here if needed
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_PASSWORD=smartbaby
+      - DB_NAME=smartbabyscale_db
+      - DB_PORT=3306
+    depends_on:
+      - db
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
+
+  db:
+    image: mysql:8.0
+    container_name: smartbabyscale_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: smartbaby
+      MYSQL_DATABASE: smartbabyscale_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # Automatically initialize the database with our schema!
+      - ./Interface/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+
+volumes:
+  mysql_data:

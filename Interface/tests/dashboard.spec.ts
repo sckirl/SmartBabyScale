@@ -5,8 +5,8 @@ test('dynamic demographics update and SGA calculation', async ({ page }) => {
   // 1. Navigate to the dashboard
   await page.goto('/');
   
-  // Verify main timbangan connection alert is visible
-  await expect(page.locator('text=Timbangan Pintar Terhubung')).toBeVisible();
+  // Verify main timbangan connection alert is visible (defaults to Demo mode when disconnected)
+  await expect(page.locator('text=Mode Demonstrasi (Raspberry Pi Tidak Terhubung)')).toBeVisible();
 
   // 2. Test Birth Weight input
   const weightInput = page.locator('input[type="number"]');
