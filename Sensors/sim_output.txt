@@ -1,0 +1,4 @@
+Attempting to connect to http://localhost:3000...
+Connected to Next.js Server
+
+[SIMULATION] Enter Height (cm) to update dashboard (or 'q' to quit): 

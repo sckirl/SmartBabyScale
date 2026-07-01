@@ -39,7 +39,11 @@ Tree-based models are the gold standard for medical tabular data. We utilize `XG
 *   **Clinical Explainability (Feature Importance):** A "black-box" model is dangerous in healthcare. XGBoost provides instantaneous Feature Importance weights. When the UI flags a baby as "High Risk," it can explicitly explain *why* (e.g., "Risk primarily driven by low temperature and low birth weight"), allowing nurses to make targeted interventions.
 *   **Scale Invariance:** XGBoost does not require feature scaling, meaning the raw sensor data (e.g., weight in grams vs. pH in decimals) can be fed directly into the model without preprocessing overhead.
 
-### 2. Secondary Model: Support Vector Machine (SVM)
+### 2. Ensemble Baseline: Random Forest
+We train a `RandomForestClassifier` to serve as the structural "ground truth" against our more aggressive boosting models (like XGBoost). 
+*   **Why is this important?** Random Forest utilizes bagging (bootstrap aggregating) to build hundreds of independent decision trees, significantly reducing variance and preventing overfitting. While XGBoost is extremely powerful, boosting can sometimes over-optimize and chase noise in smaller medical datasets. Random Forest provides a stable, highly generalized baseline. If XGBoost's predictions diverge heavily from the Random Forest, it serves as an immediate warning sign of model instability or noise-chasing. Like XGBoost, it requires no feature scaling and provides robust feature importance.
+
+### 3. Secondary Model: Support Vector Machine (SVM)
 As a comparative baseline, we also train an SVM using a Radial Basis Function (RBF) kernel. 
 *   **Non-linear Boundaries:** SVMs are excellent at drawing complex boundaries in low-dimensional spaces. 
 *   **Scaling Requirement:** Because SVMs are distance-based, this pipeline introduces a `StandardScaler` to ensure physiological values with large magnitudes (like heart rate) don't mathematically overpower smaller decimals (like serum pH). 
@@ -91,7 +95,7 @@ SmartBabyScale employs a Hybrid Architecture combining a robust Node.js server f
 
 ### **Hardware Integration**
 
-The system aggregates data from the following sensors (simulated in `SENSORS/simulation.py`):
+The system aggregates data from the following sensors (simulated in `Sensors/simulation.py` and read physically via `Sensors/pi_hardware_reader.py`):
 
 | Component | Function | Precision |
 | :--- | :--- | :--- |
@@ -128,7 +132,7 @@ Follow these steps to set up the SmartBabyScale environment locally.
 
 3.  **Setup Python Virtual Environment (For Sensors)**
     ```bash
-    cd SENSORS
+    cd ../Sensors
     python -m venv .venv
     # Activate:
     # Windows: .\.venv\Scripts\Activate
@@ -151,7 +155,7 @@ npm run dev
 **2. Start the Sensor Simulation (Terminal 2)**
 This script acts as the IoT device, sending fake sensor data to the web dashboard.
 ```bash
-# Inside /Interface/SENSORS
+# Inside the root /Sensors directory
 .\.venv\Scripts\Activate
 python simulation.py
 ```

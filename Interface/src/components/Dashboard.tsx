@@ -14,27 +14,13 @@ type VitalDataPoint = {
   value: number;
 };
 
-// Helper function to calculate Small for Gestational Age (SGA) dynamically on the client
 const calculateSGA = (bw: number, ga: number): boolean => {
-  if (ga <= 24 && bw < 550) return true;
-  if (ga === 25 && bw < 650) return true;
-  if (ga === 26 && bw < 750) return true;
-  if (ga === 27 && bw < 850) return true;
-  if (ga === 28 && bw < 950) return true;
-  if (ga === 29 && bw < 1050) return true;
-  if (ga === 30 && bw < 1200) return true;
-  if (ga === 31 && bw < 1350) return true;
-  if (ga === 32 && bw < 1500) return true;
-  if (ga === 33 && bw < 1700) return true;
-  if (ga === 34 && bw < 1900) return true;
-  if (ga === 35 && bw < 2100) return true;
-  if (ga === 36 && bw < 2300) return true;
-  if (ga === 37 && bw < 2500) return true;
-  if (ga === 38 && bw < 2700) return true;
-  if (ga === 39 && bw < 2850) return true;
-  if (ga === 40 && bw < 3000) return true;
-  if (ga >= 41 && bw < 3100) return true;
-  return false;
+  const limits: Record<number, number> = {
+    24: 550, 25: 650, 26: 750, 27: 850, 28: 950, 29: 1050, 30: 1200, 31: 1350,
+    32: 1500, 33: 1700, 34: 1900, 35: 2100, 36: 2300, 37: 2500, 38: 2700, 39: 2850, 40: 3000, 41: 3100
+  };
+  const week = Math.max(24, Math.min(41, ga));
+  return bw < limits[week];
 };
 
 export default function Dashboard() {
@@ -63,7 +49,12 @@ export default function Dashboard() {
 
   // Socket.io Connection & Bi-directional Event Handling
   useEffect(() => {
-    const socket = io();
+    // Fix for Vercel: Restrict to 'websocket' to prevent infinite XHR polling of 404 HTML pages on serverless
+    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "", {
+      transports: ['websocket'],
+      reconnectionAttempts: 3,
+      reconnectionDelay: 3000
+    });
     socketRef.current = socket;
 
     socket.on('connect', () => {
