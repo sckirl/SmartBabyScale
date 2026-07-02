@@ -81,10 +81,17 @@ def on_demographics_update(data):
         return
         
     print(f"\n[SOCKET] Received demographics update: {data}")
+    if 'patient_id' in data:
+        session.patient_id = data['patient_id']
     session.update_demographics(
         birth_weight_g=data.get('birth_weight_g'),
         gestational_age_weeks=data.get('gestational_age_weeks'),
-        apgar_score_5min=data.get('apgar_score_5min')
+        apgar_score_5min=data.get('apgar_score_5min'),
+        mean_blood_pressure=data.get('mean_blood_pressure'),
+        lowest_serum_ph=data.get('lowest_serum_ph'),
+        po2_fio2_ratio=data.get('po2_fio2_ratio'),
+        seizures=data.get('seizures'),
+        urine_output_ml_kg_hr=data.get('urine_output_ml_kg_hr')
     )
     print(f"[SESSION] Demographics Updated -> SGA calculated: {session.sga}")
     send_prediction()
@@ -151,6 +158,7 @@ def send_prediction():
             'spo2_percent': session.get_lowest_spo2(),
         },
         'demographics': {
+            'patient_id': session.patient_id,
             'birth_weight_g': session.birth_weight_g,
             'gestational_age_weeks': session.gestational_age_weeks,
             'apgar_score_5min': session.apgar_score_5min,

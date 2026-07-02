@@ -39,6 +39,7 @@ import threading
 
 # Attach MachineLearning module
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
 sys.path.append(project_root)
 from MachineLearning.session_calculator import SessionTracker
 
@@ -110,10 +111,17 @@ def connect():
 @sio.on('demographics_update')
 def on_demographics_update(data):
     print(f"\n[SOCKET] Nurse updated demographics via Interface: {data}")
+    if 'patient_id' in data:
+        session.patient_id = data['patient_id']
     session.update_demographics(
         birth_weight_g=data.get('birth_weight_g'),
         gestational_age_weeks=data.get('gestational_age_weeks'),
-        apgar_score_5min=data.get('apgar_score_5min')
+        apgar_score_5min=data.get('apgar_score_5min'),
+        mean_blood_pressure=data.get('mean_blood_pressure'),
+        lowest_serum_ph=data.get('lowest_serum_ph'),
+        po2_fio2_ratio=data.get('po2_fio2_ratio'),
+        seizures=data.get('seizures'),
+        urine_output_ml_kg_hr=data.get('urine_output_ml_kg_hr')
     )
 
 def hardware_loop():
@@ -151,6 +159,7 @@ def hardware_loop():
                 'spo2_percent': session.get_lowest_spo2(),
             },
             'demographics': {
+                'patient_id': session.patient_id,
                 'birth_weight_g': session.birth_weight_g,
                 'gestational_age_weeks': session.gestational_age_weeks,
                 'apgar_score_5min': session.apgar_score_5min,
@@ -175,7 +184,13 @@ def hardware_loop():
 
 if __name__ == '__main__':
     try:
-        # Change URL to your hosted Dokploy IP if Pi and Server are on different machines
+        # =========================================================================
+        # 🌐 CONNECTION POINT: RASPBERRY PI TO NEXT.JS SERVER
+        # =========================================================================
+        # 1. Local Testing: If running the Node server on the Pi itself, use 'localhost'
+        # 2. Local Network: If Node server is on your Mac/Laptop, use your Mac's local IP (e.g., 'http://192.168.1.15:3777')
+        # 3. Cloud/Dokploy: If Node server is deployed, use the public domain (e.g., 'https://api.yourdomain.com')
+        # =========================================================================
         sio.connect('http://localhost:3777')
         hardware_loop()
     except socketio.exceptions.ConnectionError:

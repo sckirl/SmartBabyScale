@@ -17,11 +17,17 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS patients (
     id INT AUTO_INCREMENT PRIMARY KEY,
     mrn VARCHAR(20) UNIQUE NOT NULL,
+    full_name VARCHAR(100),
+    dob DATE,
+    gender ENUM('L', 'P'),
     birth_weight_g FLOAT, 
-    gestational_age_weeks INT 
+    gestational_age_weeks INT,
+    parent_name VARCHAR(100),
+    contact_number VARCHAR(20),
+    admission_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('active', 'discharged', 'transferred') DEFAULT 'active'
 );
--- ponytail: removed full_name, dob, gender, parent info, admission status. 
--- We only need what SNAPPE-II mathematically requires (weight & GA) and a unique MRN to track the baby.
+-- Note: Expanded from Ponytail mode based on explicit user request for full patient intake data.
 
 -- 3. Vital Records (Merged Sensors + Anthropometry)
 CREATE TABLE IF NOT EXISTS vital_records (

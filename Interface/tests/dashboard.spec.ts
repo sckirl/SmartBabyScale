@@ -27,7 +27,7 @@ test('dynamic demographics update and SGA calculation', async ({ page }) => {
   await expect(page.locator('text=SGA (Small for Gestational Age)')).toBeVisible();
 
   // 5. Test Apgar Score selection dropdown
-  const apgarSelect = page.locator('select');
+  const apgarSelect = page.locator('select').nth(1);
   await expect(apgarSelect).toHaveValue('9'); // Check default value
   
   // Change Apgar to 5 (critical threshold)
@@ -38,4 +38,8 @@ test('dynamic demographics update and SGA calculation', async ({ page }) => {
   // A low Apgar score increases SNAPPE-II severity
   const snappeScore = page.locator('text=Skor Keparahan Klinis');
   await expect(snappeScore).toBeVisible();
+  
+  // Verify that Demo mode calculations actually run
+  // The risk score should update to be > 15
+  await expect(page.locator('text=Risiko Moderate')).toBeVisible();
 });

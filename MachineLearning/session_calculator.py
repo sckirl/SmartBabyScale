@@ -90,9 +90,11 @@ class SessionTracker:
         elif ga >= 41 and bw < 3100: return 1
         return 0
 
-    def update_demographics(self, birth_weight_g=None, gestational_age_weeks=None, apgar_score_5min=None):
+    def update_demographics(self, birth_weight_g=None, gestational_age_weeks=None, apgar_score_5min=None,
+                            mean_blood_pressure=None, lowest_serum_ph=None, po2_fio2_ratio=None,
+                            seizures=None, urine_output_ml_kg_hr=None):
         """
-        Dynamically updates demographic baselines. 
+        Dynamically updates demographic baselines and clinical laboratory findings. 
         Recalculates SGA automatically if weight or gestational age changes.
         """
         if birth_weight_g is not None:
@@ -101,6 +103,16 @@ class SessionTracker:
             self.gestational_age_weeks = int(gestational_age_weeks)
         if apgar_score_5min is not None:
             self.apgar_score_5min = int(apgar_score_5min)
+        if mean_blood_pressure is not None:
+            self.mean_blood_pressure = float(mean_blood_pressure)
+        if lowest_serum_ph is not None:
+            self.lowest_serum_ph = float(lowest_serum_ph)
+        if po2_fio2_ratio is not None:
+            self.po2_fio2_ratio = float(po2_fio2_ratio)
+        if seizures is not None:
+            self.seizures = int(seizures)
+        if urine_output_ml_kg_hr is not None:
+            self.urine_output_ml_kg_hr = float(urine_output_ml_kg_hr)
             
         # Re-evaluate SGA classification
         self.sga = self.calculate_sga()

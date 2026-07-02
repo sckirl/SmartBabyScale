@@ -1,4 +1,4 @@
-import { TrendingUp, Weight, Ruler, Activity } from "lucide-react";
+import { TrendingUp, Weight, Ruler, Activity, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import {
@@ -14,7 +14,17 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-export default function GrowthChart() {
+export default function GrowthChart({ activePatientId }: { activePatientId: number | null }) {
+  if (!activePatientId) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-gray-500">
+        <FileText className="h-16 w-16 mb-4 text-gray-300" />
+        <h2 className="text-xl font-medium">Belum ada data pasien</h2>
+        <p>Silakan daftar atau pilih pasien aktif di Dasbor Utama terlebih dahulu.</p>
+      </div>
+    );
+  }
+
   // Mock data untuk grafik pertumbuhan - 2 minggu terakhir
   const weightData = [
     { date: "25 Des", weight: 1.98, ideal: 2.0 },

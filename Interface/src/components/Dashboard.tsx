@@ -23,7 +23,12 @@ const calculateSGA = (bw: number, ga: number): boolean => {
   return bw < limits[week];
 };
 
-export default function Dashboard() {
+interface DashboardProps {
+  activePatientId: number | null;
+  setActivePatientId: (id: number | null) => void;
+}
+
+export default function Dashboard({ activePatientId, setActivePatientId }: DashboardProps) {
   // Scale raw sensor data states (represented in kg/cm/BPM/percent/C)
   const [currentWeight, setCurrentWeight] = useState(2.15); // in kg
   const [currentLength, setCurrentLength] = useState(48.2); // in cm
@@ -32,11 +37,24 @@ export default function Dashboard() {
   const [temperature, setTemperature] = useState(36.8);
   const [riskScore, setRiskScore] = useState(15);
 
+  // SNAPPE-II Clinical Variables
+  const [apgar, setApgar] = useState(9); // 5-minute Apgar score
+  const [meanBloodPressure, setMeanBloodPressure] = useState(35.0);
+  const [lowestSerumPh, setLowestSerumPh] = useState(7.35);
+  const [po2Fio2Ratio, setPo2Fio2Ratio] = useState(3.20);
+  const [seizures, setSeizures] = useState(0);
+  const [urineOutput, setUrineOutput] = useState(2.0);
+  const [sga, setSga] = useState(false);
+
   // Demographic / Intake inputs (defaults)
   const [birthWeight, setBirthWeight] = useState(3100); // grams
   const [gestationalAge, setGestationalAge] = useState(38); // weeks
-  const [apgar, setApgar] = useState(9); // 5-minute Apgar score
-  const [sga, setSga] = useState(false);
+  
+  // Patient Intake States
+  const [patientName, setPatientName] = useState("");
+  const [intakeForm, setIntakeForm] = useState({
+    fullName: "", mrn: "", dob: "", gender: "L", parentName: "", contactNumber: ""
+  });
 
   // Edge AI Machine Learning Output states
   const [riskLevelLabel, setRiskLevelLabel] = useState("Sedang");
@@ -52,7 +70,14 @@ export default function Dashboard() {
 
   // Socket.io Connection & Bi-directional Event Handling
   useEffect(() => {
+    // =========================================================================
+    // 🌐 CONNECTION POINT: FRONTEND DASHBOARD TO NODE.JS SERVER
+    // =========================================================================
+    // The Dashboard connects to the local Next.js server (which hosts the Socket.io hub).
+    // The Raspberry Pi ALSO connects to that same Node.js hub. The hub relays data between them.
+    // If NEXT_PUBLIC_SOCKET_URL is empty (""), it defaults to the current domain (e.g., localhost:3777).
     // Fix for Vercel: Restrict to 'websocket' to prevent infinite XHR polling of 404 HTML pages on serverless
+    // =========================================================================
     const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "", {
       transports: ['websocket'],
       reconnectionAttempts: 3,
@@ -112,36 +137,90 @@ export default function Dashboard() {
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Update demographic values and emit demographics_update event to trigger re-prediction
-  const handleDemographicChange = (field: string, value: number) => {
-    let nextBW = birthWeight;
-    let nextGA = gestationalAge;
-    let nextApg = apgar;
+  const handleDemographicChange = (field: string, value: any) => {
+    let payload: any = {
+      patient_id: activePatientId,
+      birth_weight_g: birthWeight,
+      gestational_age_weeks: gestationalAge,
+      apgar_score_5min: apgar,
+      mean_blood_pressure: meanBloodPressure,
+      lowest_serum_ph: lowestSerumPh,
+      po2_fio2_ratio: po2Fio2Ratio,
+      seizures: seizures,
+      urine_output_ml_kg_hr: urineOutput
+    };
 
     if (field === 'birth_weight_g') {
-      nextBW = value;
+      payload.birth_weight_g = value;
       setBirthWeight(value);
     } else if (field === 'gestational_age_weeks') {
-      nextGA = value;
+      payload.gestational_age_weeks = value;
       setGestationalAge(value);
     } else if (field === 'apgar_score_5min') {
-      nextApg = value;
+      payload.apgar_score_5min = value;
       setApgar(value);
+    } else if (field === 'mean_blood_pressure') {
+      payload.mean_blood_pressure = value;
+      setMeanBloodPressure(value);
+    } else if (field === 'lowest_serum_ph') {
+      payload.lowest_serum_ph = value;
+      setLowestSerumPh(value);
+    } else if (field === 'po2_fio2_ratio') {
+      payload.po2_fio2_ratio = value;
+      setPo2Fio2Ratio(value);
+    } else if (field === 'seizures') {
+      payload.seizures = value;
+      setSeizures(value);
+    } else if (field === 'urine_output_ml_kg_hr') {
+      payload.urine_output_ml_kg_hr = value;
+      setUrineOutput(value);
     }
 
-    const nextSGA = calculateSGA(nextBW, nextGA);
+    const nextSGA = calculateSGA(payload.birth_weight_g, payload.gestational_age_weeks);
     setSga(nextSGA);
 
     // ponytail: One-liner debounce to prevent WebSocket flooding when dragging sliders
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       if (socketRef.current && socketRef.current.connected) {
-        socketRef.current.emit('demographics_update', {
-          birth_weight_g: nextBW,
-          gestational_age_weeks: nextGA,
-          apgar_score_5min: nextApg
-        });
+        socketRef.current.emit('demographics_update', payload);
       }
     }, 300);
+  };
+
+  const registerPatient = async () => {
+    try {
+      const res = await fetch('/api/patients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: intakeForm.fullName,
+          mrn: intakeForm.mrn,
+          dob: intakeForm.dob,
+          gender: intakeForm.gender,
+          birth_weight_g: birthWeight,
+          gestational_age_weeks: gestationalAge,
+          parent_name: intakeForm.parentName,
+          contact_number: intakeForm.contactNumber
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setActivePatientId(data.id);
+        setPatientName(intakeForm.fullName);
+        // Sync immediate ID to hardware
+        if (socketRef.current) {
+          socketRef.current.emit('demographics_update', {
+            patient_id: data.id,
+            birth_weight_g: birthWeight,
+            gestational_age_weeks: gestationalAge,
+            apgar_score_5min: apgar
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to register patient", e);
+    }
   };
 
   // Data historis untuk grafik - tetap stabil, hanya update saat ada data baru
@@ -219,6 +298,55 @@ export default function Dashboard() {
       clearInterval(demoCheckInterval);
     };
   }, [heartRate, spO2, temperature, isDemoMode]);
+
+  // Fallback SNAPPE-II calculation for Demonstration Mode
+  useEffect(() => {
+    if (!isDemoMode) return;
+
+    let score = 0;
+    
+    // 1. Birth Weight (g)
+    if (birthWeight < 750) score += 17;
+    else if (birthWeight >= 750 && birthWeight < 1000) score += 10;
+        
+    // 2. Small for Gestational Age (SGA)
+    if (sga) score += 5;
+        
+    // 3. Apgar Score at 5 minutes
+    if (apgar < 7) score += 18;
+        
+    // 4. Mean Blood Pressure (mmHg)
+    if (meanBloodPressure < 20) score += 19;
+    else if (meanBloodPressure >= 20 && meanBloodPressure < 30) score += 9;
+        
+    // 5. Lowest Temperature (Celsius)
+    if (temperature < 35.0) score += 15;
+    else if (temperature >= 35.0 && temperature <= 35.6) score += 8;
+        
+    // 6. PO2 / FiO2 Ratio
+    if (po2Fio2Ratio < 0.3) score += 28;
+    else if (po2Fio2Ratio >= 0.3 && po2Fio2Ratio < 1.0) score += 16;
+    else if (po2Fio2Ratio >= 1.0 && po2Fio2Ratio < 2.5) score += 5;
+        
+    // 7. Lowest Serum pH
+    if (lowestSerumPh < 7.10) score += 16;
+    else if (lowestSerumPh >= 7.10 && lowestSerumPh < 7.20) score += 7;
+        
+    // 8. Multiple Seizures
+    if (seizures === 1) score += 19;
+        
+    // 9. Urine Output (mL/kg/hour)
+    if (urineOutput < 0.1) score += 18;
+    else if (urineOutput >= 0.1 && urineOutput < 1.0) score += 5;
+
+    setRiskScore(score);
+    
+    // Determine risk level based on score
+    if (score < 15) setRiskLevelLabel('Low');
+    else if (score >= 15 && score < 30) setRiskLevelLabel('Moderate');
+    else setRiskLevelLabel('High');
+
+  }, [isDemoMode, birthWeight, sga, apgar, meanBloodPressure, temperature, po2Fio2Ratio, lowestSerumPh, seizures, urineOutput]);
 
   // Risk level styling helpers
   const getRiskLevelStyles = (level: string) => {
@@ -415,6 +543,28 @@ export default function Dashboard() {
               <p className="text-xs text-muted-foreground">Isi data di bawah ini untuk memperbarui prediksi stabilitas ML secara dinamis.</p>
             </CardHeader>
             <CardContent className="space-y-4">
+              {!activePatientId ? (
+                <div className="space-y-3 bg-gray-50 p-3 rounded-lg border">
+                  <div className="text-sm font-medium mb-2 text-blue-800">Pendaftaran Pasien Baru</div>
+                  <input type="text" placeholder="Nama Lengkap Bayi" value={intakeForm.fullName} onChange={e => setIntakeForm({...intakeForm, fullName: e.target.value})} className="w-full text-xs p-2 border rounded" />
+                  <input type="text" placeholder="Nomor Rekam Medis (MRN)" value={intakeForm.mrn} onChange={e => setIntakeForm({...intakeForm, mrn: e.target.value})} className="w-full text-xs p-2 border rounded" />
+                  <div className="flex gap-2">
+                    <input type="date" value={intakeForm.dob} onChange={e => setIntakeForm({...intakeForm, dob: e.target.value})} className="w-1/2 text-xs p-2 border rounded" />
+                    <select value={intakeForm.gender} onChange={e => setIntakeForm({...intakeForm, gender: e.target.value})} className="w-1/2 text-xs p-2 border rounded">
+                      <option value="L">Laki-laki (L)</option>
+                      <option value="P">Perempuan (P)</option>
+                    </select>
+                  </div>
+                  <input type="text" placeholder="Nama Orang Tua" value={intakeForm.parentName} onChange={e => setIntakeForm({...intakeForm, parentName: e.target.value})} className="w-full text-xs p-2 border rounded" />
+                  <button onClick={registerPatient} className="w-full bg-blue-600 text-white text-xs font-bold py-2 rounded mt-2 hover:bg-blue-700">Daftarkan & Mulai Monitoring</button>
+                </div>
+              ) : (
+                <div className="bg-blue-100 text-blue-800 p-2 rounded text-sm font-medium flex justify-between items-center mb-4">
+                  <span>Pasien Aktif: {patientName} (ID: {activePatientId})</span>
+                  <button onClick={() => setActivePatientId(null)} className="text-xs underline text-blue-600">Ganti Pasien</button>
+                </div>
+              )}
+
               {/* Birth Weight Input */}
               <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-700 flex justify-between">
@@ -461,6 +611,36 @@ export default function Dashboard() {
                     <option key={i} value={i}>{i} (Nilai Apgar)</option>
                   ))}
                 </select>
+              </div>
+
+              {/* SNAPPE-II Clinical Variables */}
+              <div className="space-y-2 border-t pt-3 mt-3">
+                <div className="text-sm font-bold text-gray-800">Klinis Lanjutan (SNAPPE-II)</div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="space-y-1">
+                    <label className="text-gray-700 font-medium">Mean Blood Pressure (mmHg)</label>
+                    <input type="number" value={meanBloodPressure} onChange={(e) => handleDemographicChange('mean_blood_pressure', parseFloat(e.target.value) || 0)} className="w-full bg-white border border-gray-300 rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-gray-700 font-medium">Lowest Serum pH</label>
+                    <input type="number" step="0.01" value={lowestSerumPh} onChange={(e) => handleDemographicChange('lowest_serum_ph', parseFloat(e.target.value) || 0)} className="w-full bg-white border border-gray-300 rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-gray-700 font-medium">PO2/FiO2 Ratio</label>
+                    <input type="number" step="0.1" value={po2Fio2Ratio} onChange={(e) => handleDemographicChange('po2_fio2_ratio', parseFloat(e.target.value) || 0)} className="w-full bg-white border border-gray-300 rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-gray-700 font-medium">Urine Output (mL/kg/hr)</label>
+                    <input type="number" step="0.1" value={urineOutput} onChange={(e) => handleDemographicChange('urine_output_ml_kg_hr', parseFloat(e.target.value) || 0)} className="w-full bg-white border border-gray-300 rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  </div>
+                  <div className="space-y-1 col-span-2">
+                    <label className="text-gray-700 font-medium">Multiple Seizures</label>
+                    <select value={seizures} onChange={(e) => handleDemographicChange('seizures', parseInt(e.target.value))} className="w-full bg-white border border-gray-300 rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                      <option value={0}>Tidak Ada (0)</option>
+                      <option value={1}>Ada (1)</option>
+                    </select>
+                  </div>
+                </div>
               </div>
 
               {/* SGA Badge */}
