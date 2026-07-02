@@ -22,24 +22,27 @@ sio = socketio.Client()
 session = None
 scaler = None
 svm_model = None
-mlp_model = None
+xgb_model = None
+rf_model = None
 feature_cols = None
 is_ml_loaded = False
 
 def load_ml_assets():
-    global scaler, svm_model, mlp_model, feature_cols, is_ml_loaded
+    global scaler, svm_model, xgb_model, rf_model, feature_cols, is_ml_loaded
     models_dir = os.path.join(project_root, 'MachineLearning', 'models')
     
     scaler_path = os.path.join(models_dir, 'input_scaler.joblib')
     svm_path = os.path.join(models_dir, 'svm_risk_model.joblib')
-    mlp_path = os.path.join(models_dir, 'mlp_risk_model.joblib')
+    xgb_path = os.path.join(models_dir, 'xgboost_risk_model.joblib')
+    rf_path = os.path.join(models_dir, 'rf_risk_model.joblib')
     cols_path = os.path.join(models_dir, 'feature_columns.joblib')
     
-    if all(os.path.exists(p) for p in [scaler_path, svm_path, mlp_path, cols_path]):
+    if all(os.path.exists(p) for p in [scaler_path, svm_path, xgb_path, rf_path, cols_path]):
         try:
             scaler = joblib.load(scaler_path)
             svm_model = joblib.load(svm_path)
-            mlp_model = joblib.load(mlp_path)
+            xgb_model = joblib.load(xgb_path)
+            rf_model = joblib.load(rf_path)
             feature_cols = joblib.load(cols_path)
             is_ml_loaded = True
             print("[SIMULATION] Machine Learning models loaded successfully from disk.")
@@ -119,9 +122,13 @@ def calculate_fallback_prediction(snappe_score):
             'instability_probability': round(prob, 4),
             'outcome_prediction': 1 if prob > 0.5 else 0
         },
-        'mlp': {
-            'instability_probability': round(prob * 0.95, 4), # minor variance
+        'xgboost': {
+            'instability_probability': round(prob * 0.95, 4), 
             'outcome_prediction': 1 if (prob * 0.95) > 0.5 else 0
+        },
+        'rf': {
+            'instability_probability': round(prob * 0.98, 4), 
+            'outcome_prediction': 1 if (prob * 0.98) > 0.5 else 0
         },
         'accuracy_warning': session.packet_count < 20 if session else True,
         'packet_count': session.packet_count if session else 0
@@ -140,7 +147,7 @@ def send_prediction():
     
     if is_ml_loaded:
         try:
-            pred = session.predict_risk(scaler, svm_model, mlp_model, feature_cols)
+            pred = session.predict_risk(scaler, svm_model, xgb_model, rf_model, feature_cols)
         except Exception as e:
             print(f"[ERROR] ML prediction failed: {e}. Falling back...")
             pred = calculate_fallback_prediction(snappe)
@@ -181,7 +188,9 @@ def main():
         print("SmartBabyScale - Raspberry Pi Edge Simulation Active")
         print("=======================================================")
         print("You can simulate real-time sensor updates here.")
-        print("Option keys: 'w' (weight), 'l' (length), 't' (temp), 'h' (heart rate), 's' (SpO2), 'q' (quit)")
+        print("Option keys: 'w' (weight), 'l' (length), 't' (temp), 'h' (heart rate), 's' (SpO2), 'd' (diaper/popok), 'q' (quit)")
+        print("  Mode Popok  : d <popok_kering_g> <popok_basah_g> <jam_dipakai>")
+        print("                Contoh: d 35 82 3  (kering 35g, basah 82g, dipakai 3 jam)")
         
         while True:
             try:
@@ -192,10 +201,44 @@ def main():
                     break
                 
                 parts = user_input.split()
+                cmd = parts[0].lower() if parts else ''
+
+                # ── Mode Popok (diaper weighing): d <kering_g> <basah_g> <jam> ─────
+                # The DIAPER is weighed separately from the baby.
+                # urine_mL = basah - kering (1 g = 1 mL), then normalised to mL/kg/hr.
+                if cmd == 'd':
+                    if len(parts) != 4:
+                        print("Format: d <popok_kering_g> <popok_basah_g> <jam_dipakai>")
+                        continue
+                    try:
+                        dry_g  = float(parts[1])
+                        wet_g  = float(parts[2])
+                        hours  = float(parts[3])
+                    except ValueError:
+                        print("Nilai tidak valid. Gunakan angka.")
+                        continue
+                    if wet_g < dry_g:
+                        print("[ERROR] Berat popok basah harus >= berat popok kering.")
+                        continue
+                    if hours <= 0:
+                        print("[ERROR] Durasi harus > 0 jam.")
+                        continue
+                    baby_kg = session.current_weight_g / 1000.0
+                    if baby_kg <= 0:
+                        print("[ERROR] Berat bayi belum diset. Gunakan 'w' terlebih dahulu.")
+                        continue
+                    urine_ml       = wet_g - dry_g          # 1 g = 1 mL
+                    urine_ml_kg_hr = urine_ml / baby_kg / hours
+                    session.update_demographics(urine_output_ml_kg_hr=urine_ml_kg_hr)
+                    print(f"[POPOK] Kering={dry_g}g  Basah={wet_g}g  Urin={urine_ml:.1f} mL")
+                    print(f"[POPOK] Bayi={baby_kg:.3f} kg  Durasi={hours}h  -> {urine_ml_kg_hr:.3f} mL/kg/jam")
+                    send_prediction()
+                    continue
+
                 if len(parts) < 2:
                     print("Invalid command. Format: <key> <value>. Example: 'w 3250'")
                     continue
-                    
+
                 cmd, val_str = parts[0].lower(), parts[1]
                 
                 try:
@@ -220,7 +263,7 @@ def main():
                     session.update_sensors(spo2_percent=val)
                     print(f"[SENSOR] SpO2 updated to: {val}% (Lowest: {session.get_lowest_spo2()}%)")
                 else:
-                    print(f"Unknown sensor key '{cmd}'. Use w, l, t, h, or s.")
+                    print(f"Unknown sensor key '{cmd}'. Use w, l, t, h, s, or d.")
                     continue
                 
                 # Send updated prediction back

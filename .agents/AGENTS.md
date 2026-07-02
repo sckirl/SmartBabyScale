@@ -64,3 +64,4 @@ The project utilizes a hybrid architecture:
 ## 5. Agent Instructions
 *   Strictly adhere to the `ponytail` rules outlined above. 
 *   Always verify if a change modifies the hardware logic. If working on `Sensors/pi_hardware_reader.py`, do not import Raspberry Pi-specific libraries without a `try/except` block, as the user frequently tests code on a macOS machine.
+*   **MANDATE (Ponytail Mode):** Every time you develop, use ponytail and make the code as efficiently and effectively as possible. Do not be careless. Ask and validate about the things that you are not sure of, or if it needs a decision about a shift of vision on this project.

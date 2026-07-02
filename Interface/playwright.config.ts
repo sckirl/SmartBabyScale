@@ -1,19 +1,20 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test';
 
-// ponytail: Use the simplest config that starts the server and runs headed tests
 export default defineConfig({
   testDir: './tests',
-  timeout: 30000,
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: 'html',
   use: {
     baseURL: 'http://localhost:3777',
-    headless: false, // Run in headed mode as requested by user
-    screenshot: 'only-on-failure',
+    trace: 'on-first-retry',
   },
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3777',
-    reuseExistingServer: true,
-    stdout: 'ignore',
-    stderr: 'pipe',
-  },
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
 });

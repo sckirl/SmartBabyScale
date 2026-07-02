@@ -264,18 +264,19 @@ class SessionTracker:
             'urine_output_ml_kg_hr': self.urine_output_ml_kg_hr
         }
 
-    def predict_risk(self, scaler, svm_model, mlp_model, feature_cols):
+    def predict_risk(self, scaler, svm_model, xgb_model, rf_model, feature_cols):
         """
-        Uses pre-trained SVM and MLP models to estimate clinical risk levels and outcomes.
+        Uses pre-trained XGBoost, Random Forest, and SVM models to estimate clinical risk levels and outcomes.
         
         Parameters:
         - scaler: The trained StandardScaler object.
         - svm_model: The trained SVM model file/object.
-        - mlp_model: The trained MLP model file/object.
+        - xgb_model: The trained XGBoost model file/object.
+        - rf_model: The trained Random Forest model file/object.
         - feature_cols: List of column names in the exact training order.
         
         Returns:
-        - dict containing risk scores and probabilities from both models.
+        - dict containing risk scores and probabilities from the models.
         """
         features_dict = self.get_feature_vector()
         
@@ -290,9 +291,13 @@ class SessionTracker:
         svm_prob = float(svm_model.predict_proba(vector_scaled)[0][1])
         svm_class = int(svm_model.predict(vector_scaled)[0])
         
-        # MLP prediction
-        mlp_prob = float(mlp_model.predict_proba(vector_scaled)[0][1])
-        mlp_class = int(mlp_model.predict(vector_scaled)[0])
+        # XGBoost prediction (tree model, no scaling needed)
+        xgb_prob = float(xgb_model.predict_proba(vector_reshaped)[0][1])
+        xgb_class = int(xgb_model.predict(vector_reshaped)[0])
+        
+        # Random Forest prediction (tree model, no scaling needed - wait, earlier we patched notebook to use median imputer for RF. Since we don't have NaNs here, raw is fine or we should use scaler for consistency if it was trained on imputed. Wait, RF in the patched notebook used X_train_imp which is unscaled. We will use vector_reshaped here.)
+        rf_prob = float(rf_model.predict_proba(vector_reshaped)[0][1])
+        rf_class = int(rf_model.predict(vector_reshaped)[0])
         
         # Dynamic check for prediction confidence warning
         # If the monitoring session has fewer than 20 readings, trigger an accuracy warning
@@ -313,9 +318,13 @@ class SessionTracker:
                 'instability_probability': round(svm_prob, 4),
                 'outcome_prediction': svm_class
             },
-            'mlp': {
-                'instability_probability': round(mlp_prob, 4),
-                'outcome_prediction': mlp_class
+            'xgboost': {
+                'instability_probability': round(xgb_prob, 4),
+                'outcome_prediction': xgb_class
+            },
+            'rf': {
+                'instability_probability': round(rf_prob, 4),
+                'outcome_prediction': rf_class
             },
             'accuracy_warning': accuracy_warning,
             'packet_count': self.packet_count

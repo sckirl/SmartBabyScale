@@ -46,6 +46,12 @@ export default function Dashboard({ activePatientId, setActivePatientId }: Dashb
   const [urineOutput, setUrineOutput] = useState(2.0);
   const [sga, setSga] = useState(false);
 
+  // Mode Popok (Diaper Weighing) states
+  const [diaperMode, setDiaperMode] = useState(false);
+  const [diaperDryG, setDiaperDryG] = useState<number | "">("");
+  const [diaperWetG, setDiaperWetG] = useState<number | "">("");
+  const [diaperHours, setDiaperHours] = useState<number | "">(3);
+
   // Demographic / Intake inputs (defaults)
   const [birthWeight, setBirthWeight] = useState(3100); // grams
   const [gestationalAge, setGestationalAge] = useState(38); // weeks
@@ -62,6 +68,20 @@ export default function Dashboard({ activePatientId, setActivePatientId }: Dashb
   const [isUnstablePrediction, setIsUnstablePrediction] = useState(false);
   const [mlAccuracyWarning, setMlAccuracyWarning] = useState(true);
   const [packetCount, setPacketCount] = useState(0);
+
+  // Compute urine output from diaper weights whenever diaper inputs change
+  useEffect(() => {
+    if (!diaperMode) return;
+    const dry  = Number(diaperDryG);
+    const wet  = Number(diaperWetG);
+    const hrs  = Number(diaperHours);
+    const babyKg = currentWeight; // currentWeight is already in kg
+    if (!dry || !wet || wet < dry || !hrs || hrs <= 0 || babyKg <= 0) return;
+    const computedMlKgHr = (wet - dry) / babyKg / hrs;
+    setUrineOutput(computedMlKgHr);
+    handleDemographicChange('urine_output_ml_kg_hr', computedMlKgHr);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diaperMode, diaperDryG, diaperWetG, diaperHours, currentWeight]);
 
   const [isDemoMode, setIsDemoMode] = useState(true);
   const lastUpdateRef = useRef<number>(0);
@@ -121,8 +141,8 @@ export default function Dashboard({ activePatientId, setActivePatientId }: Dashb
         if (data.prediction) {
           setRiskScore(data.prediction.snappe_score);
           setRiskLevelLabel(data.prediction.risk_level);
-          setMlProbability(data.prediction.svm.instability_probability);
-          setIsUnstablePrediction(data.prediction.svm.outcome_prediction === 1);
+          setMlProbability(data.prediction.xgboost.instability_probability);
+          setIsUnstablePrediction(data.prediction.xgboost.outcome_prediction === 1);
           setMlAccuracyWarning(data.prediction.accuracy_warning);
           setPacketCount(data.prediction.packet_count);
         }
@@ -345,6 +365,12 @@ export default function Dashboard({ activePatientId, setActivePatientId }: Dashb
     if (score < 15) setRiskLevelLabel('Low');
     else if (score >= 15 && score < 30) setRiskLevelLabel('Moderate');
     else setRiskLevelLabel('High');
+
+    // Approximate XGBoost probability for Demo Mode
+    const baseProb = score / 100.0;
+    const approxProb = Math.min(Math.max(baseProb + (apgar < 7 ? 0.2 : 0) + (temperature < 36 ? 0.15 : 0), 0.05), 0.98);
+    setMlProbability(approxProb);
+    setIsUnstablePrediction(approxProb > 0.5);
 
   }, [isDemoMode, birthWeight, sga, apgar, meanBloodPressure, temperature, po2Fio2Ratio, lowestSerumPh, seizures, urineOutput]);
 
@@ -629,9 +655,100 @@ export default function Dashboard({ activePatientId, setActivePatientId }: Dashb
                     <label className="text-gray-700 font-medium">PO2/FiO2 Ratio</label>
                     <input type="number" step="0.1" value={po2Fio2Ratio} onChange={(e) => handleDemographicChange('po2_fio2_ratio', parseFloat(e.target.value) || 0)} className="w-full bg-white border border-gray-300 rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500" />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-gray-700 font-medium">Urine Output (mL/kg/hr)</label>
-                    <input type="number" step="0.1" value={urineOutput} onChange={(e) => handleDemographicChange('urine_output_ml_kg_hr', parseFloat(e.target.value) || 0)} className="w-full bg-white border border-gray-300 rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  <div className="space-y-1 col-span-2">
+                    {/* ── Keluaran Urine / Mode Popok ── */}
+                    <div className="flex items-center justify-between">
+                      <label className="text-gray-700 font-medium">Keluaran Urine (mL/kg/jam)</label>
+                      <button
+                        onClick={() => {
+                          setDiaperMode(m => !m);
+                          setDiaperDryG("");
+                          setDiaperWetG("");
+                          setDiaperHours(3);
+                        }}
+                        className={`text-2xs font-bold px-2 py-0.5 rounded-full border transition-colors ${
+                          diaperMode
+                            ? "bg-cyan-600 text-white border-cyan-600"
+                            : "bg-white text-cyan-700 border-cyan-400 hover:bg-cyan-50"
+                        }`}
+                      >
+                        {diaperMode ? "🧷 Mode Popok Aktif" : "🧷 Mode Popok"}
+                      </button>
+                    </div>
+
+                    {diaperMode ? (
+                      <div className="bg-cyan-50 border border-cyan-200 rounded-lg p-3 space-y-3 text-xs">
+                        <p className="text-cyan-800 font-medium text-2xs leading-snug">
+                          Timbang popok di atas timbangan (tanpa bayi). 1&nbsp;g&nbsp;=&nbsp;1&nbsp;mL urin.
+                        </p>
+
+                        {/* Step 1 – dry diaper */}
+                        <div className="space-y-1">
+                          <label className="font-semibold text-gray-700">① Popok Kering (sebelum dipakai)</label>
+                          <div className="flex gap-2">
+                            <input
+                              type="number" step="1" min="0" placeholder="gram"
+                              value={diaperDryG}
+                              onChange={e => setDiaperDryG(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                              className="w-full bg-white border border-gray-300 rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                            />
+                            <button
+                              onClick={() => setDiaperDryG(Math.round(currentWeight * 1000))}
+                              title="Ambil berat dari timbangan sekarang"
+                              className="shrink-0 text-2xs bg-cyan-600 text-white rounded px-2 hover:bg-cyan-700 whitespace-nowrap"
+                            >Ambil ⚖️</button>
+                          </div>
+                        </div>
+
+                        {/* Step 2 – wet diaper */}
+                        <div className="space-y-1">
+                          <label className="font-semibold text-gray-700">② Popok Basah (setelah dipakai)</label>
+                          <div className="flex gap-2">
+                            <input
+                              type="number" step="1" min="0" placeholder="gram"
+                              value={diaperWetG}
+                              onChange={e => setDiaperWetG(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                              className="w-full bg-white border border-gray-300 rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                            />
+                            <button
+                              onClick={() => setDiaperWetG(Math.round(currentWeight * 1000))}
+                              title="Ambil berat dari timbangan sekarang"
+                              className="shrink-0 text-2xs bg-cyan-600 text-white rounded px-2 hover:bg-cyan-700 whitespace-nowrap"
+                            >Ambil ⚖️</button>
+                          </div>
+                        </div>
+
+                        {/* Duration */}
+                        <div className="space-y-1">
+                          <label className="font-semibold text-gray-700">③ Durasi Pemakaian (jam)</label>
+                          <input
+                            type="number" step="0.5" min="0.5" placeholder="jam"
+                            value={diaperHours}
+                            onChange={e => setDiaperHours(e.target.value === "" ? "" : parseFloat(e.target.value))}
+                            className="w-full bg-white border border-gray-300 rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                          />
+                        </div>
+
+                        {/* Live result */}
+                        {Number(diaperWetG) >= Number(diaperDryG) && Number(diaperDryG) > 0 && Number(diaperHours) > 0 && (
+                          <div className="bg-white rounded p-2 border border-cyan-300 text-center space-y-0.5">
+                            <div className="text-xs font-bold text-cyan-700">
+                              {(Number(diaperWetG) - Number(diaperDryG)).toFixed(0)} mL urin
+                            </div>
+                            <div className="text-2xs text-gray-600">
+                              → <span className="font-bold text-cyan-800">{urineOutput.toFixed(2)} mL/kg/jam</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <input
+                        type="number" step="0.1"
+                        value={urineOutput}
+                        onChange={e => handleDemographicChange('urine_output_ml_kg_hr', parseFloat(e.target.value) || 0)}
+                        className="w-full bg-white border border-gray-300 rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    )}
                   </div>
                   <div className="space-y-1 col-span-2">
                     <label className="text-gray-700 font-medium">Multiple Seizures</label>
@@ -696,7 +813,7 @@ export default function Dashboard({ activePatientId, setActivePatientId }: Dashb
                   
                   <div className="space-y-1">
                     <div className="flex justify-between text-2xs text-muted-foreground">
-                      <span>Probabilitas Ketidakstabilan (SVM):</span>
+                      <span>Probabilitas Ketidakstabilan (XGBoost):</span>
                       <span className="font-bold">{(mlProbability * 100).toFixed(1)}%</span>
                     </div>
                     <Progress value={mlProbability * 100} className="h-1.5" />
