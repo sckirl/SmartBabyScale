@@ -51,12 +51,16 @@ The project utilizes a hybrid architecture:
     *   `SmartBabyScale_Training.ipynb`: Jupyter notebook containing the full training and serialization pipeline.
     *   `/models/`: Output directory for `.joblib` models.
 
-## 3. Machine Learning Strategy (Crucial Context)
-*   **Pivot to Regression (NEW):** The project is shifting from binary classification (`is_unstable`) to **Regression**. The goal is to predict the exact continuous 1-162 SNAPPE-II score based on the clinical variables, aligning the ML perfectly with the traditional heuristic scoring.
-*   **Primary Model (XGBoost):** Chosen for its native ability to handle missing data and output Feature Importance. Will be adapted for regression (e.g., `XGBRegressor`).
-*   **Ensemble Baseline (Random Forest):** Serves as a structural "ground truth". Will be adapted for regression (`RandomForestRegressor`).
-*   **Secondary Baseline (SVM):** Uses an RBF kernel. Relies on `StandardScaler`. Will be adapted for regression (`SVR`).
-*   **Avoided Deep Learning:** Neural networks were explicitly avoided to prevent unnecessary edge memory bloat on the Raspberry Pi and to retain transparency.
+## 3. Machine Learning Strategy & Current Handoff (The Regression Pivot)
+*   **The Paradigm Shift:** The project is pivoting from binary classification to **Regression**. The ML models must now predict the exact continuous **1-162 SNAPPE-II score** based on the clinical variables, aligning perfectly with traditional heuristic scoring.
+*   **Branch Strategy:** The old classification codebase is archived on the `Classification` branch. The `master` branch is solely for Regression work.
+
+**Immediate Next Agent Tasks:**
+1.  **Data Prep (Script Required):** The `neonatal_dataset.csv` currently lacks the `snappe_ii_score`. You **MUST** write a Python script to manually calculate this deterministic 1-162 score based on standard clinical ranges for each row, and use it as the new regression target `y`.
+2.  **ML Refactor:** Convert `SmartBabyScale_Training.ipynb` to use Regressors (`XGBRegressor`, `RandomForestRegressor`, `SVR`). Evaluate using RMSE, MAE, and R-squared.
+3.  **UI Redesign:** Update `Dashboard.tsx` to display a point tally (0-162) with severity colors (Green < 40, Red > 80) instead of a percentage.
+4.  **Clinical Recommendations:** Map the predicted score to severity tiers (Mild, Moderate, Severe). Add specific UI recommendations based on the raw variables (e.g., if heart rate is low, output "Check for oxygen level, infection, or medication").
+5.  **Sensors:** No changes needed. Hardware streams the same raw variables.
 
 ## 4. Known Technical Constraints & Surgical Fixes
 *   **Vercel Deployment (Socket.io Crash):** Vercel's serverless environment drops the Next.js custom `server.js` (which hosts the websocket). To prevent Next.js from hanging in an infinite 404 HTML long-polling loop on Vercel, the client connection in `Dashboard.tsx` is specifically constrained to `transports: ['websocket']` with limited reconnection attempts. **Do not remove this constraint if Vercel compatibility is required.**
@@ -66,19 +70,3 @@ The project utilizes a hybrid architecture:
 *   Strictly adhere to the `ponytail` rules outlined above. 
 *   Always verify if a change modifies the hardware logic. If working on `Sensors/pi_hardware_reader.py`, do not import Raspberry Pi-specific libraries without a `try/except` block, as the user frequently tests code on a macOS machine.
 *   **MANDATE (Ponytail Mode):** Every time you develop, use ponytail and make the code as efficiently and effectively as possible. Do not be careless. Ask and validate about the things that you are not sure of, or if it needs a decision about a shift of vision on this project.
-
-## 6. CURRENT HANDOFF: The Regression Pivot
-*   **Context:** The user correctly identified that outputting a binary Stable/Unstable probability doesn't strictly align with the core purpose of a SNAPPE-II tool, which calculates a 1-162 severity point score.
-*   **The Goal:** Refactor the ML pipeline to use **Regression** models (XGBRegressor, RandomForestRegressor, SVR) to predict the exact 1-162 SNAPPE-II score.
-*   **Branch Strategy:** The old classification codebase is safely stored on the `Classification` branch. The `master` branch is where the Regression work begins.
-*   **Next Agent Tasks:** 
-    1. Read the user's answers to the dataset questions to understand if the target label `snappe_ii_score` exists or needs to be calculated.
-    2. Convert `SmartBabyScale_Training.ipynb` classifiers to regressors.
-    3. Update evaluation metrics from Accuracy/AUC to RMSE, MAE, and R-squared.
-    4. Ensure the React UI (`Dashboard.tsx`) correctly displays a point score (0-162) instead of a percentage probability.
-
-*   **Regression Implementation Details (Confirmed with User):**
-    *   **Data Preparation:** The current dataset only has raw variables. You MUST write a Python script to manually calculate the deterministic 1-162 SNAPPE-II score based on the clinical ranges for each row, and use that as the regression target `y`.
-    *   **UI Redesign:** Rewrite the Dashboard UI to show a point tally out of 162 with severity colors (e.g., Green < 40, Red > 80).
-    *   **Clinical Recommendations:** Map the predicted score to severity tiers (Mild, Moderate, Severe). Crucially, the UI must also provide specific clinical recommendations based on the raw variables (e.g., if heart rate is low, output "Check for oxygen level, infection, or medication").
-    *   **Hardware Sensors:** No changes required. The IoT edge scripts continue streaming the exact same raw data variables.
