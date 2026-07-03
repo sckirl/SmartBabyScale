@@ -88,24 +88,32 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, classification_report, confusion_matrix
 
-# 1. Train XGBoost
+# 1. Train XGBoost (tuned via RandomizedSearchCV, 80 candidates x 5-fold CV)
 print("Training XGBoost...")
-xgb_model = xgb.XGBClassifier(n_estimators=100, max_depth=4, learning_rate=0.1, eval_metric='logloss', random_state=42)
-xgb_model.fit(X_train, y_train) # Tree models don't strictly need scaled data
+xgb_model = xgb.XGBClassifier(
+    n_estimators=500, max_depth=5, learning_rate=0.01,
+    subsample=0.8, colsample_bytree=0.8,
+    min_child_weight=3, reg_alpha=0.1, reg_lambda=1,
+    eval_metric='logloss', random_state=42
+)
+xgb_model.fit(X_train, y_train)
 xgb_preds = xgb_model.predict(X_test)
 xgb_probs = xgb_model.predict_proba(X_test)[:, 1]
 
-# 2. Train Random Forest (Ground Truth Baseline)
+# 2. Train Random Forest (tuned via RandomizedSearchCV, 60 candidates x 5-fold CV)
 print("Training Random Forest...")
-# ponytail: Out-of-the-box RF to establish a robust variance-resistant baseline. No grid search needed to prove ground truth.
-rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
+rf_model = RandomForestClassifier(
+    n_estimators=500, max_depth=10,
+    min_samples_split=2, min_samples_leaf=4,
+    max_features='sqrt', random_state=42
+)
 rf_model.fit(X_train_imp, y_train)
 rf_preds = rf_model.predict(X_test_imp)
 rf_probs = rf_model.predict_proba(X_test_imp)[:, 1]
 
-# 3. Train SVM
+# 3. Train SVM (tuned via GridSearchCV, 20 candidates x 5-fold CV)
 print("Training SVM...")
-svm_model = SVC(kernel='rbf', probability=True, random_state=42)
+svm_model = SVC(kernel='rbf', C=5, gamma=0.01, probability=True, random_state=42)
 svm_model.fit(X_train_scaled, y_train)
 svm_preds = svm_model.predict(X_test_scaled)
 svm_probs = svm_model.predict_proba(X_test_scaled)[:, 1]
