@@ -76,3 +76,9 @@ The project utilizes a hybrid architecture:
     2. Convert `SmartBabyScale_Training.ipynb` classifiers to regressors.
     3. Update evaluation metrics from Accuracy/AUC to RMSE, MAE, and R-squared.
     4. Ensure the React UI (`Dashboard.tsx`) correctly displays a point score (0-162) instead of a percentage probability.
+
+*   **Regression Implementation Details (Confirmed with User):**
+    *   **Data Preparation:** The current dataset only has raw variables. You MUST write a Python script to manually calculate the deterministic 1-162 SNAPPE-II score based on the clinical ranges for each row, and use that as the regression target `y`.
+    *   **UI Redesign:** Rewrite the Dashboard UI to show a point tally out of 162 with severity colors (e.g., Green < 40, Red > 80).
+    *   **Clinical Recommendations:** Map the predicted score to severity tiers (Mild, Moderate, Severe). Crucially, the UI must also provide specific clinical recommendations based on the raw variables (e.g., if heart rate is low, output "Check for oxygen level, infection, or medication").
+    *   **Hardware Sensors:** No changes required. The IoT edge scripts continue streaming the exact same raw data variables.
