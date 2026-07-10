@@ -108,9 +108,9 @@ def calculate_fallback_prediction(snappe_score):
     logit = -3.0 + 0.12 * snappe_score
     prob = 1.0 / (1.0 + np.exp(-logit))
     
-    if snappe_score < 15:
+    if snappe_score < 40:
         risk_level = 'Low'
-    elif 15 <= snappe_score < 30:
+    elif 40 <= snappe_score <= 80:
         risk_level = 'Moderate'
     else:
         risk_level = 'High'

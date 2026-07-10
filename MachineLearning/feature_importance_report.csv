@@ -1,0 +1,14 @@
+Feature,Importance,Is_IoT_Sensor
+sga,0.9748688,False
+urine_output_ml_kg_hr,0.01534302,True
+seizures,0.005464451,False
+lowest_serum_ph,0.0043011024,False
+current_length_cm,7.468764e-06,True
+birth_weight_g,6.6405637e-06,False
+current_weight_g,5.1814955e-06,True
+po2_fio2_ratio,2.9572786e-06,False
+avg_heart_rate_bpm,4.689988e-07,True
+lowest_temperature_celsius,0.0,True
+lowest_spo2_percent,0.0,True
+mean_blood_pressure,0.0,False
+apgar_score_5min,0.0,False

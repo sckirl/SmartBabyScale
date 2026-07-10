@@ -362,15 +362,15 @@ export default function Dashboard({ activePatientId, setActivePatientId }: Dashb
     setRiskScore(score);
     
     // Determine risk level based on score
-    if (score < 15) setRiskLevelLabel('Low');
-    else if (score >= 15 && score < 30) setRiskLevelLabel('Moderate');
+    if (score < 40) setRiskLevelLabel('Low');
+    else if (score >= 40 && score <= 80) setRiskLevelLabel('Moderate');
     else setRiskLevelLabel('High');
 
-    // Approximate XGBoost probability for Demo Mode
-    const baseProb = score / 100.0;
-    const approxProb = Math.min(Math.max(baseProb + (apgar < 7 ? 0.2 : 0) + (temperature < 36 ? 0.15 : 0), 0.05), 0.98);
-    setMlProbability(approxProb);
-    setIsUnstablePrediction(approxProb > 0.5);
+    // Progress bar representation based on max SNAPPE-II score of 162
+    const scorePercent = Math.min((score / 162) * 100, 100);
+    setMlProbability(scorePercent / 100); // UI uses mlProbability for the progress bar
+    setIsUnstablePrediction(score > 80);
+
 
   }, [isDemoMode, birthWeight, sga, apgar, meanBloodPressure, temperature, po2Fio2Ratio, lowestSerumPh, seizures, urineOutput]);
 
@@ -381,7 +381,7 @@ export default function Dashboard({ activePatientId, setActivePatientId }: Dashb
       return { color: "text-green-600", badge: "bg-green-500", variant: "default" as const };
     }
     if (norm === "sedang" || norm === "moderate") {
-      return { color: "text-yellow-600", badge: "bg-yellow-500", variant: "secondary" as const };
+      return { color: "text-gray-600", badge: "bg-gray-500", variant: "secondary" as const };
     }
     return { color: "text-red-600", badge: "bg-red-500", variant: "destructive" as const };
   };
@@ -794,27 +794,12 @@ export default function Dashboard({ activePatientId, setActivePatientId }: Dashb
                   Risiko {riskLevelLabel}
                 </Badge>
 
-                {/* Machine Learning Output Status */}
+                {/* Machine Learning Regression Risk Bar */}
                 <div className="pt-3 border-t space-y-2">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-medium text-gray-700">Rekomendasi Imunisasi:</span>
-                    {isUnstablePrediction ? (
-                      <span className="flex items-center gap-1 font-bold text-red-600">
-                        <AlertCircle className="h-4 w-4" />
-                        TUNDA (Instabilitas Vitals)
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 font-bold text-green-600">
-                        <CheckCircle2 className="h-4 w-4" />
-                        LAYAK IMUNISASI (Stabil)
-                      </span>
-                    )}
-                  </div>
-                  
                   <div className="space-y-1">
                     <div className="flex justify-between text-2xs text-muted-foreground">
-                      <span>Probabilitas Ketidakstabilan (XGBoost):</span>
-                      <span className="font-bold">{(mlProbability * 100).toFixed(1)}%</span>
+                      <span>Tingkat Keparahan XGBoost (0-162 Skala):</span>
+                      <span className="font-bold">{(mlProbability * 100).toFixed(1)}% Maksimum</span>
                     </div>
                     <Progress value={mlProbability * 100} className="h-1.5" />
                   </div>
@@ -869,16 +854,33 @@ export default function Dashboard({ activePatientId, setActivePatientId }: Dashb
             <CardHeader className="pb-2">
               <CardTitle className="text-xs flex items-center gap-1.5">
                 <AlertTriangle className="h-4 w-4 text-indigo-600" />
-                Wawasan Klinis SmartBabyScale
+                Rekomendasi Klinis NICU (Sistem XGBoost)
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2 text-2xs text-gray-700 leading-relaxed">
-                <div className="bg-white rounded p-2 shadow-2xs">
-                  <strong>Analisis Sesi:</strong> Usia gestasi {gestationalAge} minggu dengan berat lahir {birthWeight}g ({sga ? "SGA" : "Normal"}). Detak jantung {Math.round(heartRate)} BPM dan saturasi SpO2 {Math.round(spO2)}% menunjukkan kondisi yang {isUnstablePrediction ? "labil dan berisiko mengalami komplikasi." : "relatif stabil dan tenang."}
+                <div className="bg-white rounded p-2 shadow-2xs border-l-2 border-l-indigo-400">
+                  <strong className="text-indigo-800">Tingkat Keparahan Umum:</strong>{" "}
+                  {riskScore < 40 
+                    ? "Ringan (Mild). Teruskan perawatan suportif dasar. Monitoring rutin." 
+                    : riskScore <= 80 
+                      ? "Sedang (Moderate). Evaluasi klinis menyeluruh. Pertimbangkan dukungan cairan/oksigen tambahan. Tunda intervensi non-esensial." 
+                      : "Berat (Severe). Risiko instabilitas klinis tinggi. Eskalasi perawatan ke level intensif segera. Siapkan resusitasi."}
                 </div>
-                <div className="bg-white rounded p-2 shadow-2xs">
-                  <strong>Rekomendasi Imunisasi:</strong> {isUnstablePrediction ? "Tunda pemberian imunisasi rutin saat ini. Observasi detak jantung dan berikan dukungan termal/oksigen tambahan. Laporkan ke dokter anak jika suhu terus di bawah 36°C." : "Bayi stabil. Clearance imunisasi dapat disetujui untuk vaksin hepatitis B lahir atau polio sesuai jadwal."}
+                
+                <div className="bg-white rounded p-2 shadow-2xs border-l-2 border-l-rose-400">
+                  <strong className="text-rose-800">Intervensi Spesifik Sensor:</strong>
+                  <ul className="list-disc pl-4 mt-1 space-y-1">
+                    {heartRate < 100 && <li><strong>Bradikardia:</strong> Periksa saturasi oksigen, curigai kemungkinan infeksi atau efek pengobatan.</li>}
+                    {heartRate > 180 && <li><strong>Takikardia:</strong> Evaluasi nyeri, demam, hipovolemia, atau dehidrasi.</li>}
+                    {spO2 < 90 && <li><strong>Hipoksia:</strong> Segera berikan terapi oksigen, periksa patensi jalan napas dan ventilasi mekanik.</li>}
+                    {temperature < 35.5 && <li><strong>Hipotermia:</strong> Tingkatkan suhu inkubator, gunakan infant warmer, periksa tanda awal sepsis.</li>}
+                    {temperature > 37.5 && <li><strong>Demam:</strong> Turunkan suhu lingkungan bertahap, periksa indikasi infeksi klinis.</li>}
+                    {urineOutput < 0.5 && urineOutput > 0 && <li><strong>Oliguria:</strong> Pantau status hidrasi ketat, evaluasi asupan cairan intravena, dan pertimbangkan tes fungsi ginjal.</li>}
+                    {(heartRate >= 100 && heartRate <= 180 && spO2 >= 90 && temperature >= 35.5 && temperature <= 37.5) && (
+                      <li className="text-green-600">Semua parameter sensor fisik utama berada dalam batas aman sementara.</li>
+                    )}
+                  </ul>
                 </div>
               </div>
             </CardContent>

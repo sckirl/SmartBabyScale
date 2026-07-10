@@ -43,10 +43,9 @@ Tree-based models are the gold standard for medical tabular data. We utilize `XG
 We train a `RandomForestClassifier` to serve as the structural "ground truth" against our more aggressive boosting models (like XGBoost). 
 *   **Why is this important?** Random Forest utilizes bagging (bootstrap aggregating) to build hundreds of independent decision trees, significantly reducing variance and preventing overfitting. While XGBoost is extremely powerful, boosting can sometimes over-optimize and chase noise in smaller medical datasets. Random Forest provides a stable, highly generalized baseline. If XGBoost's predictions diverge heavily from the Random Forest, it serves as an immediate warning sign of model instability or noise-chasing. Like XGBoost, it requires no feature scaling and provides robust feature importance.
 
-### 3. Secondary Model: Support Vector Machine (SVM)
-As a comparative baseline, we also train an SVM using a Radial Basis Function (RBF) kernel. 
-*   **Non-linear Boundaries:** SVMs are excellent at drawing complex boundaries in low-dimensional spaces. 
-*   **Scaling Requirement:** Because SVMs are distance-based, this pipeline introduces a `StandardScaler` to ensure physiological values with large magnitudes (like heart rate) don't mathematically overpower smaller decimals (like serum pH). 
+### 3. The Baseline SVR Collapse
+As a comparative baseline, we also trained a Support Vector Regressor (SVR) using a Radial Basis Function (RBF) kernel. **It completely collapsed (R² of 0.070, RMSE of 13.97).** 
+*   **Why did the RBF kernel fail?** SVR inherently attempts to smooth out errors across a continuous geometric space. This mathematical property makes it structurally incapable of handling the highly rigid, step-wise point distribution clusters of the SNAPPE-II clinical scoring system. The decision trees (XGBoost/RF) naturally thrive on these sharp clinical thresholds, whereas the SVR completely fails to fit the step-wise distribution.
 
 ### Why avoid Deep Learning (Neural Networks)?
 While an MLP (Multi-Layer Perceptron) could be used, deep learning architectures introduce unnecessary bloat for a 14-feature tabular dataset. They act as opaque black boxes (lacking feature importance), require strict scaling, and consume significantly more RAM—making them suboptimal for a Raspberry Pi edge device compared to the highly efficient, sub-millisecond inference of an XGBoost ensemble.
