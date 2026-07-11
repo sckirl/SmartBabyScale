@@ -66,7 +66,8 @@ The project utilizes a hybrid architecture:
 *   **Vercel Deployment (Socket.io Crash):** Vercel's serverless environment drops the Next.js custom `server.js` (which hosts the websocket). To prevent Next.js from hanging in an infinite 404 HTML long-polling loop on Vercel, the client connection in `Dashboard.tsx` is specifically constrained to `transports: ['websocket']` with limited reconnection attempts. **Do not remove this constraint if Vercel compatibility is required.**
 *   **Folder Restructuring:** The Python sensor scripts were relocated to the root `Sensors/` directory. Internal `sys.path` imports rely on `..` to reach the `MachineLearning/` module.
 
-## 5. Agent Instructions
+## 5. Agent Instructions & Custom Skills
 *   Strictly adhere to the `ponytail` rules outlined above. 
 *   Always verify if a change modifies the hardware logic. If working on `Sensors/pi_hardware_reader.py`, do not import Raspberry Pi-specific libraries without a `try/except` block, as the user frequently tests code on a macOS machine.
+*   **Global Custom Skills:** Whenever asked to perform structured graph modeling or modular optimization, read the active skills defined in `/Users/alvin/.gemini/skills/` (specifically the graphify-inspired rules in `/Users/alvin/.gemini/skills/brain/SKILL.md`).
 *   **MANDATE (Ponytail Mode):** Every time you develop, use ponytail and make the code as efficiently and effectively as possible. Do not be careless. Ask and validate about the things that you are not sure of, or if it needs a decision about a shift of vision on this project.
