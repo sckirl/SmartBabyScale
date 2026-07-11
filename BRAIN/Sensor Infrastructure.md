@@ -4,8 +4,12 @@
 After auditing the Raspberry Pi Python scripts (`pi_hardware_reader.py` and `simulation.py`), the physical data collected by the IoT edge device is strictly limited to:
 - **HX711 (Weight Sensor)**: Measures `current_weight_g`. (Also used in a clever hack to measure diaper weight to calculate `urine_output_ml_kg_hr`).
 - **HC-SR04 (Ultrasonic)**: Measures `current_length_cm`.
+  - **CRITICAL RISK:** Feeding a 5V ECHO signal from the HC-SR04 directly into a 3.3V Pi GPIO pin risks permanent hardware damage. A voltage divider (1k/2k) must be used. (See [[IEEE Reviewer Audit]]).
 - **MLX90614 (Infrared)**: Measures `lowest_temperature_celsius` non-invasively.
 - **GY-MAX30102 (Pulse Ox)**: Measures `avg_heart_rate_bpm` and `lowest_spo2_percent`.
+
+> [!WARNING] Linux Jitter Risk
+> Non-real-time OS jitter on Raspberry Pi (Linux) can severely disrupt strict timing requirements for sensor protocols like the HC-SR04 ultrasonic timing, degrading measurement reliability.
 
 ## 2. The Flaw in Previous Feature Engineering
 Our previous model evaluation showed **PO2/FiO2 Ratio** and **Mean Blood Pressure** as the most important features. However, these are **external clinical lab results**, not data gathered by our non-invasive scale. 

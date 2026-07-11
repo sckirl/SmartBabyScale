@@ -11,10 +11,10 @@
             "id": "ed0a06c28cad02c3",
             "type": "leaf",
             "state": {
-              "type": "empty",
+              "type": "graph",
               "state": {},
-              "icon": "lucide-file",
-              "title": "New tab"
+              "icon": "lucide-git-fork",
+              "title": "Graph view"
             }
           }
         ]
@@ -181,19 +181,19 @@
   },
   "active": "ed0a06c28cad02c3",
   "lastOpenFiles": [
-    "plan.md",
-    "Conference Presentation Guide.md",
-    "shap_summary.png",
-    "False Negative Mitigation.md",
-    "Fault Tolerance Plan.md",
     "Architecture.md",
-    "Agent Mandates.md",
-    "actual_vs_pred.png",
+    "SNAPPE-II Scoring.md",
+    "shap_summary.png",
     "Sensor Infrastructure.md",
+    "plan.md",
     "NICU Recommendations.md",
     "Index.md",
+    "Fault Tolerance Plan.md",
+    "False Negative Mitigation.md",
+    "Conference Presentation Guide.md",
+    "Agent Mandates.md",
+    "actual_vs_pred.png",
     "The Pivot.md",
-    "SNAPPE-II Scoring.md",
     "Untitled.canvas",
     "Untitled 2.canvas",
     "2026-07-03.md",

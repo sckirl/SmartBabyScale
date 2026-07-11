@@ -79,13 +79,27 @@ def init_sensors():
         # sensors['hx711'].set_scale_ratio(114.2) # Needs physical calibration
     return sensors
 
+# Buffer to hold 2 seconds of data (20 samples at 10 SPS)
+raw_buffer = []
+
+def get_filtered_weight(raw_reading):
+    raw_buffer.append(raw_reading)
+    if len(raw_buffer) > 20:
+        raw_buffer.pop(0)
+    # Apply median filter followed by mean to discard outliers
+    sorted_buf = sorted(raw_buffer)
+    # Strip outer 25% outliers
+    median_filtered = sorted_buf[5:-5] if len(sorted_buf) >= 20 else sorted_buf
+    return sum(median_filtered) / len(median_filtered) if median_filtered else raw_reading
+
 def read_hardware(sensors):
     """Read from physical sensors, or fallback to mock data for testing"""
     if ON_PI:
         try:
             # ACTUAL HARDWARE READS
             # length_cm = sensors['ultrasonic'].distance * 100
-            # weight_g = sensors['hx711'].get_weight_mean(readings=10)
+            # raw_w = sensors['hx711'].get_weight_mean(readings=1)
+            # weight_g = get_filtered_weight(raw_w)
             # temp_c = sensors['mlx'].object_temperature
             # hr, spo2 = sensors['max30102'].read_sequential()
             
@@ -96,7 +110,8 @@ def read_hardware(sensors):
             
     # MOCK TEST DATA (Creates a realistic sine-wave variation)
     t = time.time()
-    weight_g = 3250.0 + (random.uniform(-5, 5))
+    raw_w = 3250.0 + (random.uniform(-5, 5))
+    weight_g = get_filtered_weight(raw_w)
     length_cm = 48.0 + (random.uniform(-0.2, 0.2))
     temp_c = 36.5 + (0.5 * random.uniform(-1, 1))
     heart_rate = int(140 + 10 * (t % 10) / 10.0) 
