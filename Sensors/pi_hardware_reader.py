@@ -39,12 +39,22 @@ Pinout Configuration (Raspberry Pi 5):
 import os
 import sys
 import time
-import socketio
 import random
 import threading
-import joblib
 import numpy as np
 import json
+
+try:
+    import socketio
+    HAS_SOCKETIO = True
+except ImportError:
+    HAS_SOCKETIO = False
+
+try:
+    import joblib
+    HAS_JOBLIB = True
+except ImportError:
+    HAS_JOBLIB = False
 
 # Attach MachineLearning module
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -87,6 +97,18 @@ except ImportError:
 
 # Try loading SSD1306 OLED and Pillow libraries for local display (ponytail: safe imports)
 try:
+    # Safe import wrapper: adafruit_ssd1306 has a bug where it crashes on import with NameError
+    # if digitalio is not installed. Since the OLED uses I2C and does not need a reset pin,
+    # we mock digitalio if it fails to import so the real OLED still initializes and works.
+    import sys
+    try:
+        import digitalio
+    except ImportError:
+        import types
+        dummy_dig = types.ModuleType('digitalio')
+        dummy_dig.DigitalInOut = object
+        sys.modules['digitalio'] = dummy_dig
+
     import adafruit_ssd1306
     from PIL import Image, ImageDraw, ImageFont
     HAS_OLED = True
