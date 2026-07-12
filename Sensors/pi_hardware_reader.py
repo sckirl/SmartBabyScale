@@ -38,12 +38,31 @@ import random
 import threading
 import joblib
 import numpy as np
+import json
 
 # Attach MachineLearning module
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 sys.path.append(project_root)
 from MachineLearning.session_calculator import SessionTracker
+
+# Load calibration coefficients
+calibrations = {}
+config_path = os.path.join(project_root, 'Sensors', 'calibration_coeffs.json')
+if os.path.exists(config_path):
+    try:
+        with open(config_path, 'r') as f:
+            calibrations = json.load(f)
+        print("[HARDWARE] Loaded calibration coefficients from JSON.")
+    except Exception as e:
+        print(f"[HARDWARE] Error loading calibrations: {e}")
+if not calibrations:
+    calibrations = {
+        "weight": {"a": 0.0, "b": 1.0, "c": 0.0},
+        "temperature": {"alpha": 0.12},
+        "length": {"humidity": 50.0},
+        "fitzpatrick": {"1": 0.0, "2": 0.0, "3": 0.0, "4": -1.5, "5": -3.0, "6": -4.5}
+    }
 
 # Try loading Raspberry Pi specific hardware libraries
 try:
@@ -164,32 +183,107 @@ def get_filtered_weight(raw_reading):
     median_filtered = sorted_buf[5:-5] if len(sorted_buf) >= 20 else sorted_buf
     return sum(median_filtered) / len(median_filtered) if median_filtered else raw_reading
 
+def get_calibrated_distance(echo_duration_secs, temp_c, humidity_percent=50.0):
+    # Speed of sound incorporating temperature and humidity
+    c = 331.4 + (0.606 * temp_c) + (0.0124 * humidity_percent) # m/s
+    # Distance = (time * speed) / 2
+    distance_cm = (echo_duration_secs * (c * 100)) / 2.0
+    return round(distance_cm, 2)
+
+def get_calibrated_spo2(raw_spo2, fitzpatrick_scale):
+    # Melanin overestimates SpO2 in Fitzpatrick IV-VI (Sjoding 2020)
+    offsets = {1: 0.0, 2: 0.0, 3: 0.0, 4: -1.5, 5: -3.0, 6: -4.5}
+    offset = offsets.get(int(fitzpatrick_scale), 0.0)
+    calibrated_spo2 = raw_spo2 + offset
+    return min(100.0, max(0.0, calibrated_spo2))
+
+def get_core_temperature(temp_skin, temp_ambient, alpha=0.12):
+    # Melexis physiological thermal transfer model
+    # alpha is the tissue thermal conductivity coefficient
+    temp_core = temp_skin + (temp_skin - temp_ambient) * alpha
+    return round(temp_core, 2)
+
+def get_linearized_weight(raw_weight_g):
+    poly_coeffs = calibrations.get("weight", {"a": 0.0, "b": 1.0, "c": 0.0})
+    a = poly_coeffs.get("a", 0.0)
+    b = poly_coeffs.get("b", 1.0)
+    c = poly_coeffs.get("c", 0.0)
+    calibrated_weight = a * (raw_weight_g ** 2) + b * raw_weight_g + c
+    return round(calibrated_weight, 1)
+
+try:
+    from scipy.signal import butter, filtfilt
+    HAS_SCIPY = True
+except ImportError:
+    HAS_SCIPY = False
+    print("[WARNING] scipy not installed. PPG bandpass filtering will be bypassed.")
+
+def neonatal_bandpass_filter(ppg_signal, fs=50.0):
+    if not HAS_SCIPY:
+        return ppg_signal # ponytail: bypass if scipy is missing
+    # 0.8 Hz = 48 BPM; 4.0 Hz = 240 BPM
+    nyq = 0.5 * fs
+    low = 0.8 / nyq
+    high = 4.0 / nyq
+    b, a = butter(4, [low, high], btype='band')
+    filtered_signal = filtfilt(b, a, ppg_signal)
+    return filtered_signal
+
 def read_hardware(sensors):
     """Read from physical sensors, or fallback to mock data for testing"""
+    weight_g, length_cm, temp_c, heart_rate, spo2 = 0.0, 0.0, 0.0, 140, 98
+    
     if ON_PI:
         try:
-            # ACTUAL HARDWARE READS
-            # length_cm = sensors['ultrasonic'].distance * 100
+            # 1. Weight Filtering & Quadratic Poly-Calibration
             # raw_w = sensors['hx711'].get_weight_mean(readings=1)
-            # weight_g = get_filtered_weight(raw_w)
-            # temp_c = sensors['mlx'].object_temperature
-            # hr, spo2 = sensors['max30102'].read_sequential()
+            # filtered_w = get_filtered_weight(raw_w)
+            # weight_g = get_linearized_weight(filtered_w)
             
-            # Using mock values mixed with some real sensor inputs to prevent crashing if hardware isn't attached
-            pass 
+            # 2. Temperature skin-to-core imputation (using object and ambient temp from MLX90614)
+            # temp_skin = sensors['mlx'].object_temperature
+            # temp_ambient = sensors['mlx'].ambient_temperature
+            # alpha = calibrations.get("temperature", {}).get("alpha", 0.12)
+            # temp_c = get_core_temperature(temp_skin, temp_ambient, alpha)
+            
+            # 3. Speed-of-Sound compensated length calculation
+            # raw_distance_m = sensors['ultrasonic'].distance
+            # c_std = 343.0
+            # echo_duration_secs = (2.0 * raw_distance_m) / c_std
+            # humidity = calibrations.get("length", {}).get("humidity", 50.0)
+            # length_cm = get_calibrated_distance(echo_duration_secs, temp_ambient, humidity)
+            
+            # 4. PPG bandpass filtering (MAX30102 raw reads)
+            # raw_ppg = sensors['max30102'].read_raw_ppg()
+            # filtered_ppg = neonatal_bandpass_filter(raw_ppg)
+            # raw_hr, raw_spo2 = sensors['max30102'].calculate_vitals(filtered_ppg)
+            # heart_rate = int(raw_hr)
+            # spo2 = int(raw_spo2)
+            pass
         except Exception as e:
-            print(f"[ERROR] Sensor read failed: {e}")
+            print(f"[ERROR] Sensor read failed: {e}. Falling back to mock data.")
             
-    # MOCK TEST DATA (Creates a realistic sine-wave variation)
+    # MOCK TEST DATA (Creates a realistic sine-wave variation using calibration math)
     t = time.time()
     raw_w = 3250.0 + (random.uniform(-5, 5))
     weight_g = get_filtered_weight(raw_w)
-    length_cm = 48.0 + (random.uniform(-0.2, 0.2))
-    temp_c = 36.5 + (0.5 * random.uniform(-1, 1))
+    calibrated_w = get_linearized_weight(weight_g)
+    
+    # Simulate ultrasonic length (with mock ambient temp 28C)
+    raw_l_cm = 48.0 + (random.uniform(-0.2, 0.2))
+    echo_duration = (2.0 * raw_l_cm) / 34300.0
+    humidity = calibrations.get("length", {}).get("humidity", 50.0)
+    length_cm = get_calibrated_distance(echo_duration, 28.0, humidity)
+    
+    # Core Temp imputation from Skin Temp (35.8C skin, 28C ambient)
+    temp_skin = 35.8 + (0.3 * random.uniform(-1, 1))
+    alpha = calibrations.get("temperature", {}).get("alpha", 0.12)
+    temp_c = get_core_temperature(temp_skin, 28.0, alpha)
+    
     heart_rate = int(140 + 10 * (t % 10) / 10.0) 
     spo2 = int(97 + 2 * (t % 5) / 5.0)
 
-    return weight_g, length_cm, temp_c, heart_rate, spo2
+    return calibrated_w, length_cm, temp_c, heart_rate, spo2
 
 @sio.event
 def connect():
@@ -209,7 +303,8 @@ def on_demographics_update(data):
         lowest_serum_ph=data.get('lowest_serum_ph'),
         po2_fio2_ratio=data.get('po2_fio2_ratio'),
         seizures=data.get('seizures'),
-        urine_output_ml_kg_hr=data.get('urine_output_ml_kg_hr')
+        urine_output_ml_kg_hr=data.get('urine_output_ml_kg_hr'),
+        fitzpatrick_scale=data.get('fitzpatrick_scale')
     )
 
 def hardware_loop():
@@ -252,7 +347,7 @@ def hardware_loop():
                 'length_cm': session.current_length_cm,
                 'temperature_celsius': session.current_temp_c,
                 'heart_rate_bpm': session.get_avg_heart_rate(),
-                'spo2_percent': session.get_lowest_spo2(),
+                'spo2_percent': session.get_calibrated_spo2(),
             },
             'demographics': {
                 'patient_id': session.patient_id,

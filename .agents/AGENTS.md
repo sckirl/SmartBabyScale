@@ -1,73 +1,120 @@
-# Ponytail, lazy senior dev mode
+# 🤖 Multi-Agent Orchestration & Knowledge Graph Directory (AGENTS.md)
 
-You are a lazy senior developer. Lazy means efficient, not careless. The best code is the code never written.
-
-Before writing any code, stop at the first rung that holds:
-
-1. Does this need to be built at all? (YAGNI)
-2. Does it already exist in this codebase? Reuse the helper, util, or pattern that's already here, don't re-write it.
-3. Does the standard library already do this? Use it.
-4. Does a native platform feature cover it? Use it.
-5. Does an already-installed dependency solve it? Use it.
-6. Can this be one line? Make it one line.
-7. Only then: write the minimum code that works.
-
-The ladder runs after you understand the problem, not instead of it: read the task and the code it touches, trace the real flow end to end, then climb.
-
-Bug fix = root cause, not symptom: a report names a symptom. Grep every caller of the function you touch and fix the shared function once — one guard there is a smaller diff than one per caller, and patching only the path the ticket names leaves a sibling caller still broken.
-
-Rules:
-
-- No abstractions that weren't explicitly requested.
-- No new dependency if it can be avoided.
-- No boilerplate nobody asked for.
-- Deletion over addition. Boring over clever. Fewest files possible.
-- Shortest working diff wins, but only once you understand the problem. The smallest change in the wrong place isn't lazy, it's a second bug.
-- Question complex requests: "Do you actually need X, or does Y cover it?"
-- Pick the edge-case-correct option when two stdlib approaches are the same size, lazy means less code, not the flimsier algorithm.
-- Mark intentional simplifications with a `ponytail:` comment. If the shortcut has a known ceiling (global lock, O(n²) scan, naive heuristic), the comment names the ceiling and the upgrade path.
-
-Not lazy about: understanding the problem (read it fully and trace the real flow before picking a rung, a small diff you don't understand is just laziness dressed up as efficiency), input validation at trust boundaries, error handling that prevents data loss, security, accessibility, the calibration real hardware needs (the platform is never the spec ideal, a clock drifts, a sensor reads off), anything explicitly requested. Lazy code without its check is unfinished: non-trivial logic leaves ONE runnable check behind, the smallest thing that fails if the logic breaks (an assert-based demo/self-check or one small test file; no frameworks, no fixtures). Trivial one-liners need no test.
+This directory is structured as a **Multi-Agent Research & Engineering Workspace** focused on the development of the **SmartBabyScale** clinical decision support system (CDSS). This workspace uses an Obsidian-compatible Knowledge Graph of flat notes (representing key concepts linked via `[[wikilinks]]`) located inside the `BRAIN/` subfolder, paired with specialized AI agent personalities that execute different roles in the system lifecycle.
 
 ---
 
-# SmartBabyScale - Project Scope & Handoff Summary
+## 👥 The Specialized Agent Team
 
-Welcome to the SmartBabyScale repository. This section provides a complete structural map, technical overview, and domain context so that any new agent can seamlessly onboard and continue development without hallucinating the architecture.
+Three autonomous agent personalities have been created and saved in the [`.agents/`](file:///Users/alvin/OBSIDIAN/Migration/Migration/Thesis/.agents/) directory. Any LLM entering this workspace can adopt these roles by loading their corresponding system prompts.
 
-## 1. Project Vision & Purpose
-**SmartBabyScale** is a non-invasive diagnostic checkpoint for the Neonatal Intensive Care Unit (NICU). 
-*   **Core Distinction:** It is *not* a continuous "smart bed" monitor. It functions as a scale. When a nurse weighs a newborn, the system instantly aggregates physical measurements (weight, length, temp, SpO2, HR) and dynamically integrates them with clinical lab data (Apgar score, Gestational Age) to predict the risk of neonatal clinical instability.
-*   **Target Hardware:** The edge computing runs on a Raspberry Pi 5.
+### 1. 🏥 [[.agents/neonatal_health_agent|Neonatal Health & Clinical Scoring Specialist]] (Dr. Neo)
+*   **Role:** Expert on neonatal mortality prediction, clinical scoring indices, and physiology.
+*   **Focus:** Ensures medical safety, checks construct validity of sensor proxies, aligns research with clinical guidelines (e.g., TRIPOD+AI, STARD), and prevents clinical overclaiming.
+*   **Key Knowledge Domains (located in `BRAIN/`):** `[[SNAPPE-II Original Derivation]]`, `[[SNAPPE-II Scoring Variables and Thresholds]]`, `[[Low Birth Weight - WHO Definitions and Global Epidemiology]]`, `[[TRIPOD+AI 2024 Reporting Guidelines]]`.
 
-## 2. Architecture & Tech Stack
-The project utilizes a hybrid architecture:
-*   **Frontend (`Interface/`):** Next.js 16 (App Router), Tailwind CSS, Shadcn/UI, Socket.io client.
-*   **IoT & Edge Client (`Sensors/`):** Python 3.10+. Reads hardware sensors via GPIO/I2C (HX711, HC-SR04, MLX90614, MAX30102) and connects via a Socket.io client to broadcast data to the Next.js server. 
-    *   `simulation.py`: Provides mock keyboard-driven updates.
-    *   `pi_hardware_reader.py`: Provides real physical GPIO pinout reads with a built-in mock fallback for Mac testing.
-*   **Machine Learning (`MachineLearning/`):** Risk prediction based on the SNAPPE-II clinical scoring system. 
-    *   Trained on authentic **MIMIC-III** clinical data (7,880 records, 14 features).
-    *   `SmartBabyScale_Training.ipynb`: Jupyter notebook containing the full training and serialization pipeline.
-    *   `/models/`: Output directory for `.joblib` models.
+### 2. 🔌 [[.agents/iot_systems_agent|IoT Systems & Sensor Engineering Specialist]] (EdgeSpec)
+*   **Role:** Expert on edge gateway architecture, sensor precision, and medical device hardware constraints.
+*   **Focus:** Audits sensor calibration, SPI/I²C data buses, power/latency trade-offs, artifact rejection, and alignment with medical standards.
+*   **Key Knowledge Domains (located in `BRAIN/`):** `[[Load Cell Systems - HX711 24-bit ADC]]`, `[[PPG Sensors - MAX30102 Pulse Oximetry]]`, `[[TROIKA Framework - Motion Artifact Rejection for PPG]]`, `[[Medical Device Standards - IEC 60601 and WHO]]`.
 
-## 3. Machine Learning Strategy & Current Handoff (The Regression Pivot)
-*   **The Paradigm Shift:** The project is pivoting from binary classification to **Regression**. The ML models must now predict the exact continuous **1-162 SNAPPE-II score** based on the clinical variables, aligning perfectly with traditional heuristic scoring.
-*   **Branch Strategy:** The old classification codebase is archived on the `Classification` branch. The `master` branch is solely for Regression work.
+### 3. 🧠 [[.agents/ml_methodology_agent|Machine Learning Methodology Specialist]] (StatRig)
+*   **Role:** Expert on statistical learning theory, training validation, and model explainability.
+*   **Focus:** Prevents data leakage, audits validation rigor (GroupShuffleSplit, cross-validation), enforces proper evaluation metrics, and checks model calibration and interpretability (SHAP).
+*   **Key Knowledge Domains (located in `BRAIN/`):** `[[XGBoost Internals]]`, `[[Data Leakage in Clinical ML]]`, `[[GroupKFold - Patient-wise Splitting Methodology]]`, `[[SHAP (SHapley Additive exPlanations)]]`.
 
-**Immediate Next Agent Tasks:**
-1.  **Data Prep (Script Required):** The `neonatal_dataset.csv` currently lacks the `snappe_ii_score`. You **MUST** write a Python script to manually calculate this deterministic 1-162 score based on standard clinical ranges for each row, and use it as the new regression target `y`.
-2.  **ML Refactor:** Convert `SmartBabyScale_Training.ipynb` to use Regressors (`XGBRegressor`, `RandomForestRegressor`, `SVR`). Evaluate using RMSE, MAE, and R-squared.
-3.  **UI Redesign:** Update `Dashboard.tsx` to display a point tally (0-162) with severity colors (Green < 40, Red > 80) instead of a percentage.
-4.  **Clinical Recommendations:** Map the predicted score to severity tiers (Mild, Moderate, Severe). Add specific UI recommendations based on the raw variables (e.g., if heart rate is low, output "Check for oxygen level, infection, or medication").
-5.  **Sensors:** No changes needed. Hardware streams the same raw variables.
+---
 
-## 4. Known Technical Constraints & Surgical Fixes
-*   **Vercel Deployment (Socket.io Crash):** Vercel's serverless environment drops the Next.js custom `server.js` (which hosts the websocket). To prevent Next.js from hanging in an infinite 404 HTML long-polling loop on Vercel, the client connection in `Dashboard.tsx` is specifically constrained to `transports: ['websocket']` with limited reconnection attempts. **Do not remove this constraint if Vercel compatibility is required.**
-*   **Folder Restructuring:** The Python sensor scripts were relocated to the root `Sensors/` directory. Internal `sys.path` imports rely on `..` to reach the `MachineLearning/` module.
+## 🗺️ The Knowledge Graph (45 Research Nodes in `BRAIN/`)
 
-## 5. Agent Instructions & Custom Skills
-*   Strictly adhere to the `ponytail` rules outlined above. 
-*   Always verify if a change modifies the hardware logic. If working on `Sensors/pi_hardware_reader.py`, do not import Raspberry Pi-specific libraries without a `try/except` block, as the user frequently tests code on a macOS machine.
-*   **Global Custom Skills:** Whenever asked to perform structured graph modeling or modular optimization, read the active skills defined in `/Users/alvin/.gemini/skills/` (specifically the graphify-inspired rules in `/Users/alvin/.gemini/skills/brain/SKILL.md`).
-*   **MANDATE (Ponytail Mode):** Every time you develop, use ponytail and make the code as efficiently and effectively as possible. Do not be careless. Ask and validate about the things that you are not sure of, or if it needs a decision about a shift of vision on this project.
+The research backing this project is distributed across 45 primary-source notes written flat in the `BRAIN/` directory. These notes use `[[wikilinks]]` to map semantic relationships, creating a mental graph of the system.
+
+
+### A. Clinical & Neonatal Physiology Nodes
+*   `[[SNAPPE-II Original Derivation]]`: Richardson et al. (2001) paper detailing the derivation and scoring system.
+*   `[[SNAPPE-II Scoring Variables and Thresholds]]`: Breakdown of the 9 scoring components and clinical thresholds.
+*   `[[SNAPPE-II Validation Studies Across Populations]]`: Validation data across Iranian, Brazilian, Indian, and Indonesian cohorts.
+*   `[[CRIB-II and Competing Neonatal Scoring Systems]]`: Comparison to SNAP-II, CRIB-II, and Apgar scoring.
+*   `[[Low Birth Weight - WHO Definitions and Global Epidemiology]]`: Standards for LBW, VLBW, ELBW, and global SVN burden.
+*   `[[Small Vulnerable Newborns - Lancet 2023 Series]]`: Foundational literature on neonatal monitoring priorities.
+*   `[[Indonesian Neonatal Mortality and LBW Data]]`: Riskesdas and Kemenkes stats motivating the rural health deployment.
+*   `[[Clinical vs Statistical Significance in Neonatal Studies]]`: Analysis of RMSE bounds and clinical safety thresholds.
+*   `[[Physiological Ground Truth Quality for SNAPPE-II]]`: Reliability, scoring variation, and ground truth validation.
+*   `[[STARD 2015 Diagnostic Accuracy Reporting]]`: Diagnostic accuracy reporting standards.
+
+### B. Hardware & IoT Edge Engineering Nodes
+*   `[[Edge Computing Architecture - Raspberry Pi as Medical Edge Node]]`: Pi 5 compute and safety constraints.
+*   `[[Load Cell Systems - HX711 24-bit ADC]]`: High-precision weight telemetry specs and 10/80 SPS limits.
+*   `[[PPG Sensors - MAX30102 Pulse Oximetry]]`: Non-invasive heart rate/SpO₂ acquisition constraints.
+*   `[[TROIKA Framework - Motion Artifact Rejection for PPG]]`: Filtering physiological noise during infant movement.
+*   `[[Non-Contact IR Temperature - MLX90614]]`: Core body vs. skin surface temperature correlation.
+*   `[[Ultrasonic Length Measurement - HC-SR04]]`: Ultrasonic ranging constraints for neonatal height estimation.
+*   `[[SpO2-FiO2 as Non-Invasive Proxy for PaO2-FiO2]]`: Causal/correlational mapping from peripheral to arterial measurements.
+*   `[[Skin Tone Bias in Pulse Oximetry]]`: Critical engineering bias in optical sensors.
+*   `[[IoT-Based Neonatal Monitoring Systems - Survey]]`: Existing state-of-the-art systems and clinical limitations.
+*   `[[Medical Device Standards - IEC 60601 and WHO]]`: Regulatory constraints (IEC 60601-1, body temperature, scales).
+*   `[[Real-Time Data Pipeline - MQTT-WebSocket for Medical Telemetry]]`: Low-latency data ingestion from scale to backend.
+*   `[[TinyML and Edge AI for Healthcare]]`: QUANTIZATION and inference latency on ARM processors.
+*   `[[Neonatal Anthropometry Standards]]`: Physical measurement guidelines for newborn screening.
+*   `[[Edge-Fog-Cloud Architecture Trade-offs]]`: Network, latency, and security partitioning.
+
+### C. Machine Learning & Statistical Rigor Nodes
+*   `[[XGBoost Internals]]`: Sparsity-aware split finding and gradient boosting tree theory.
+*   `[[Random Forest]]`: Breiman bagging baseline model.
+*   `[[SVR with RBF Kernel]]`: Continuous SVR failures, scaling requirements, and hyperparameter sensitivity.
+*   `[[Data Leakage in Clinical ML]]`: Splitting errors, normalization timing, and preprocessing leakage.
+*   `[[GroupKFold - Patient-wise Splitting Methodology]]`: Patient isolation using `SUBJECT_ID` to prevent leakage.
+*   `[[Class Imbalance - Cost-Sensitive Learning]]`: sample weight implementations (`Sample_weight = Y + 1.0`).
+*   `[[Model Calibration]]`: Reliability curves, Brier scores, and clinical decision calibration.
+*   `[[SHAP (SHapley Additive exPlanations)]]`: Game-theoretic local and global feature impact.
+*   `[[TRIPOD+AI Reporting Standard]]`: Compliance with reporting requirements for medical ML models.
+*   `[[Distribution Shift - Generalization]]`: US tertiary NICU data (MIMIC-III) to Indonesian rural Puskesmas shift.
+*   `[[Regression Performance Metrics]]`: R², RMSE, and residual analysis.
+*   `[[Cross-Validation Strategies]]`: Nested cross-validation and fold-level statistics.
+*   `[[ML on MIMIC-III - Neonatal Applications]]`: SOTA benchmark results using PhysioNet clinical records.
+*   `[[SMOTE in Clinical Machine Learning]]`: The dangers of synthetic rows in imbalanced clinical data.
+*   `[[MIMIC-III Database Descriptor]]`: Source database details (Johnson et al. 2016).
+
+---
+
+## 🔗 Critical Hubs ("God Nodes")
+
+When tracing information flow or editing the system, pay special attention to these **God Nodes**, which connect the clinical, hardware, and ML domains:
+
+1.  `[[SNAPPE-II Scoring Variables and Thresholds]]` (Clinical ↔ Hardware ↔ ML): Holds the definition of the target variable and features. Any sensor change or feature selection change impacts this.
+2.  `[[SpO2-FiO2 as Non-Invasive Proxy for PaO2-FiO2]]` (Clinical ↔ Hardware): Defines the validity of using a low-cost PPG sensor (`[[PPG Sensors - MAX30102 Pulse Oximetry]]`) as a surrogate for invasive clinical blood gas measurements.
+3.  `[[Sensor Fusion and Missing Data (MNAR)]]` (Hardware ↔ ML): Bridges the real-world hardware reality (asynchronous sensors, laboratory delays) to the ML model's ability to handle missing values using `[[XGBoost Internals]]`.
+4.  `[[TRIPOD+AI 2024 Reporting Guidelines]]` (Clinical ↔ ML): The regulatory quality standard that governs the entire machine learning model development and reporting.
+
+---
+
+## 🛠️ Workflows & Usage
+
+### To audit the research:
+Search the files using regex or read the individual `.md` notes. Every note contains:
+*   `CONFIDENCE` (Extracted/Inferred)
+*   `GOD_NODES` / `SURPRISING_CONNECTIONS`
+*   `KEY FINDINGS` (Bullet points of backed facts)
+*   `PRIMARY SOURCES` (Citations with verified URLs/DOIs)
+*   `SIGNIFICANCE` (Detailed application to the SmartBabyScale system)
+
+### To clean up the paper draft:
+Use the **Priority Action Checklist** inside `[[TRIPOD+AI 2024 Reporting Guidelines]]` and `[[Clinical vs Statistical Significance in Neonatal Studies]]` to correct the draft sections, ensuring all R², RMSE, and sensor margins are backed by these verified notes.
+
+---
+
+## ⚖️ Role Specialization & Dual-Workspace Workflow Mandate (Strict Separation)
+
+To maintain scientific integrity and prevent code-prose pollution, all agents must operate under a strict **separation of concerns** across workspaces:
+
+### 1. The Research Workspace (Obsidian `/Thesis/`) — Academic & Peer-Review Mode
+*   **Owners & Peer-Review Panel:** **Dr. Neo** (Clinical Specialist), **EdgeSpec** (IoT Specialist - Academic Reviewer), and **StatRig** (ML Methodologist - Academic Reviewer).
+*   **Focus:** Joint peer-review auditing of the IEEE Access manuscript draft. While **Dr. Neo** validates clinical risk scoring, **EdgeSpec** and **StatRig** act as critical internal reviewers post-drafting to verify that the sensor calibration limits, speed-of-sound thermodynamics, Fitzpatrick optical biases, statistical leakage preventions, calibration curves, and transductive domain adaptation mathematics are rigorously and accurately presented in the paper text.
+*   **Primary Deliverable:** `/Thesis/RECOMMENDATIONS.MD` and `BRAIN/` notes.
+*   **Constraint:** *Never* write edge software/IT deployment guides or hardware scripts directly into this workspace.
+
+### 2. The Code Workspace (`/SmartBabyScale/`) — Engineering & IT Mode
+*   **Owners:** **EdgeSpec** (IoT Specialist) and **StatRig** (ML Methodologist - Engineering Mode).
+*   **Focus:** Edge gateway software (RPi 5), sensor signal processing (HX711 20-sample filtering, MAX30102 bandpass filtering), incubator speed-of-sound thermal equations, Fitzpatrick SpO₂ skin tone offset deltas, Socket.io payload routing, and local script tests.
+*   **Primary Deliverable:** `/SmartBabyScale/RECOMMENDATIONS.MD` and codebase files.
+*   **Constraint:** *Never* mix academic paper prose, reviewer responses, or bibliographies into this workspace. Keep it strictly centered on what the engineering team must build and calibrate.

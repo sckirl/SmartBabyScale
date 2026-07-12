@@ -2,6 +2,8 @@ import os
 import sys
 import time
 import socketio
+import json
+import random
 
 # Add the project root to sys.path to enable imports from MachineLearning
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -17,6 +19,58 @@ except ImportError:
 
 # Create a Socket.IO client
 sio = socketio.Client()
+
+# Load calibration coefficients
+calibrations = {}
+config_path = os.path.join(project_root, 'Sensors', 'calibration_coeffs.json')
+if os.path.exists(config_path):
+    try:
+        with open(config_path, 'r') as f:
+            calibrations = json.load(f)
+        print("[SIMULATION] Loaded calibration coefficients from JSON.")
+    except Exception as e:
+        print(f"[SIMULATION] Error loading calibrations: {e}")
+if not calibrations:
+    # Default fallback values
+    calibrations = {
+        "weight": {"a": 0.0, "b": 1.0, "c": 0.0},
+        "temperature": {"alpha": 0.12},
+        "length": {"humidity": 50.0},
+        "fitzpatrick": {"1": 0.0, "2": 0.0, "3": 0.0, "4": -1.5, "5": -3.0, "6": -4.5}
+    }
+
+# Buffer to hold 2 seconds of weight data (20 samples at 10 SPS)
+raw_weight_buffer = []
+
+def get_filtered_weight(raw_reading):
+    raw_weight_buffer.append(raw_reading)
+    if len(raw_weight_buffer) > 20:
+        raw_weight_buffer.pop(0)
+    sorted_buf = sorted(raw_weight_buffer)
+    median_filtered = sorted_buf[5:-5] if len(sorted_buf) >= 20 else sorted_buf
+    return sum(median_filtered) / len(median_filtered) if median_filtered else raw_reading
+
+def get_linearized_weight(raw_weight_g):
+    poly_coeffs = calibrations.get("weight", {"a": 0.0, "b": 1.0, "c": 0.0})
+    a = poly_coeffs.get("a", 0.0)
+    b = poly_coeffs.get("b", 1.0)
+    c = poly_coeffs.get("c", 0.0)
+    calibrated_weight = a * (raw_weight_g ** 2) + b * raw_weight_g + c
+    return round(calibrated_weight, 1)
+
+def get_compensated_length(raw_length_cm, temp_c):
+    # Assume raw length was calculated using standard speed of sound c_std = 343 m/s (at 20°C)
+    # Echo duration (secs) = 2 * raw_length_cm / (343.0 * 100)
+    c_std = 343.0
+    echo_duration = (2.0 * raw_length_cm) / (c_std * 100.0)
+    
+    # Calculate speed of sound in m/s incorporating temperature and humidity
+    humidity = calibrations.get("length", {}).get("humidity", 50.0)
+    c_comp = 331.4 + (0.606 * temp_c) + (0.0124 * humidity)
+    
+    # Distance = (time * speed) / 2
+    distance_cm = (echo_duration * (c_comp * 100.0)) / 2.0
+    return round(distance_cm, 2)
 
 # Global Session Tracker & ML assets
 session = None
@@ -94,7 +148,8 @@ def on_demographics_update(data):
         lowest_serum_ph=data.get('lowest_serum_ph'),
         po2_fio2_ratio=data.get('po2_fio2_ratio'),
         seizures=data.get('seizures'),
-        urine_output_ml_kg_hr=data.get('urine_output_ml_kg_hr')
+        urine_output_ml_kg_hr=data.get('urine_output_ml_kg_hr'),
+        fitzpatrick_scale=data.get('fitzpatrick_scale')
     )
     print(f"[SESSION] Demographics Updated -> SGA calculated: {session.sga}")
     send_prediction()
@@ -162,7 +217,7 @@ def send_prediction():
             'length_cm': session.current_length_cm,
             'temperature_celsius': session.current_temp_c,
             'heart_rate_bpm': session.get_avg_heart_rate(),
-            'spo2_percent': session.get_lowest_spo2(),
+            'spo2_percent': session.get_calibrated_spo2(),
         },
         'demographics': {
             'patient_id': session.patient_id,
@@ -188,7 +243,7 @@ def main():
         print("SmartBabyScale - Raspberry Pi Edge Simulation Active")
         print("=======================================================")
         print("You can simulate real-time sensor updates here.")
-        print("Option keys: 'w' (weight), 'l' (length), 't' (temp), 'h' (heart rate), 's' (SpO2), 'd' (diaper/popok), 'q' (quit)")
+        print("Option keys: 'w' (weight), 'l' (length), 't' (temp), 'h' (heart rate), 's' (SpO2), 'd' (diaper/popok), 'f' (fitzpatrick), 'q' (quit)")
         print("  Mode Popok  : d <popok_kering_g> <popok_basah_g> <jam_dipakai>")
         print("                Contoh: d 35 82 3  (kering 35g, basah 82g, dipakai 3 jam)")
         
@@ -248,11 +303,18 @@ def main():
                     continue
                 
                 if cmd == 'w':
-                    session.update_sensors(weight_grams=val)
-                    print(f"[SENSOR] Weight updated to: {val} g")
+                    # Populate the buffer with simulated raw readings around val to test the outliers filter
+                    for _ in range(20):
+                        raw_w = val + random.uniform(-2.0, 2.0)
+                        filtered_w = get_filtered_weight(raw_w)
+                    calibrated_w = get_linearized_weight(filtered_w)
+                    session.update_sensors(weight_grams=calibrated_w)
+                    print(f"[SENSOR] Weight updated: Raw={val}g, Filtered & Calibrated={calibrated_w}g")
                 elif cmd == 'l':
-                    session.update_sensors(length_cm=val)
-                    print(f"[SENSOR] Length updated to: {val} cm")
+                    temp_c = session.current_temp_c
+                    calibrated_l = get_compensated_length(val, temp_c)
+                    session.update_sensors(length_cm=calibrated_l)
+                    print(f"[SENSOR] Length updated: Raw={val}cm, Compensated={calibrated_l}cm")
                 elif cmd == 't':
                     session.update_sensors(temperature_celsius=val)
                     print(f"[SENSOR] Temp updated to: {val} °C (Lowest: {session.lowest_temp_c} °C)")
@@ -261,9 +323,15 @@ def main():
                     print(f"[SENSOR] Heart Rate updated to: {val} BPM (Avg: {session.get_avg_heart_rate():.1f})")
                 elif cmd == 's':
                     session.update_sensors(spo2_percent=val)
-                    print(f"[SENSOR] SpO2 updated to: {val}% (Lowest: {session.get_lowest_spo2()}%)")
+                    print(f"[SENSOR] SpO2 updated to: {val}% (Lowest: {session.get_lowest_spo2()}%, Calibrated: {session.get_calibrated_spo2()}%)")
+                elif cmd == 'f':
+                    if val < 1 or val > 6:
+                        print("[ERROR] Fitzpatrick scale must be between 1 and 6.")
+                        continue
+                    session.update_demographics(fitzpatrick_scale=val)
+                    print(f"[DEMOGRAPHICS] Fitzpatrick scale updated to: Type {int(val)} (Offset: {calibrations.get('fitzpatrick', {}).get(str(int(val)), 0.0)}%)")
                 else:
-                    print(f"Unknown sensor key '{cmd}'. Use w, l, t, h, s, or d.")
+                    print(f"Unknown sensor key '{cmd}'. Use w, l, t, h, s, d, or f.")
                     continue
                 
                 # Send updated prediction back

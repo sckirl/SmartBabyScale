@@ -55,6 +55,7 @@ export default function Dashboard({ activePatientId, setActivePatientId }: Dashb
   // Demographic / Intake inputs (defaults)
   const [birthWeight, setBirthWeight] = useState(3100); // grams
   const [gestationalAge, setGestationalAge] = useState(38); // weeks
+  const [fitzpatrickScale, setFitzpatrickScale] = useState(1); // SpO2 skin-tone correction scale
   
   // Patient Intake States
   const [patientName, setPatientName] = useState("");
@@ -111,7 +112,8 @@ export default function Dashboard({ activePatientId, setActivePatientId }: Dashb
       socket.emit('demographics_update', {
         birth_weight_g: birthWeight,
         gestational_age_weeks: gestationalAge,
-        apgar_score_5min: apgar
+        apgar_score_5min: apgar,
+        fitzpatrick_scale: fitzpatrickScale
       });
     });
 
@@ -136,6 +138,9 @@ export default function Dashboard({ activePatientId, setActivePatientId }: Dashb
           setGestationalAge(data.demographics.gestational_age_weeks);
           setApgar(data.demographics.apgar_score_5min);
           setSga(data.demographics.sga === 1);
+          if (data.demographics.fitzpatrick_scale !== undefined) {
+            setFitzpatrickScale(data.demographics.fitzpatrick_scale);
+          }
         }
         // Update predictions from models
         if (data.prediction) {
@@ -167,7 +172,8 @@ export default function Dashboard({ activePatientId, setActivePatientId }: Dashb
       lowest_serum_ph: lowestSerumPh,
       po2_fio2_ratio: po2Fio2Ratio,
       seizures: seizures,
-      urine_output_ml_kg_hr: urineOutput
+      urine_output_ml_kg_hr: urineOutput,
+      fitzpatrick_scale: fitzpatrickScale
     };
 
     if (field === 'birth_weight_g') {
@@ -194,6 +200,9 @@ export default function Dashboard({ activePatientId, setActivePatientId }: Dashb
     } else if (field === 'urine_output_ml_kg_hr') {
       payload.urine_output_ml_kg_hr = value;
       setUrineOutput(value);
+    } else if (field === 'fitzpatrick_scale') {
+      payload.fitzpatrick_scale = value;
+      setFitzpatrickScale(value);
     }
 
     const nextSGA = calculateSGA(payload.birth_weight_g, payload.gestational_age_weeks);
@@ -234,7 +243,8 @@ export default function Dashboard({ activePatientId, setActivePatientId }: Dashb
             patient_id: data.id,
             birth_weight_g: birthWeight,
             gestational_age_weeks: gestationalAge,
-            apgar_score_5min: apgar
+            apgar_score_5min: apgar,
+            fitzpatrick_scale: fitzpatrickScale
           });
         }
       }
@@ -636,6 +646,23 @@ export default function Dashboard({ activePatientId, setActivePatientId }: Dashb
                   {Array.from({ length: 11 }, (_, i) => (
                     <option key={i} value={i}>{i} (Nilai Apgar)</option>
                   ))}
+                </select>
+              </div>
+
+              {/* Fitzpatrick Skin Tone Selector */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-700">Skala Fitzpatrick (Warna Kulit SpO₂)</label>
+                <select 
+                  value={fitzpatrickScale} 
+                  onChange={(e) => handleDemographicChange('fitzpatrick_scale', parseInt(e.target.value))}
+                  className="w-full bg-white border border-gray-300 rounded-md py-1.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium"
+                >
+                  <option value={1}>Tipe I (Sangat Terang / 0% offset)</option>
+                  <option value={2}>Tipe II (Terang / 0% offset)</option>
+                  <option value={3}>Tipe III (Sedang / 0% offset)</option>
+                  <option value={4}>Tipe IV (Cokelat Muda / -1.5% SpO₂)</option>
+                  <option value={5}>Tipe V (Cokelat Tua / -3.0% SpO₂)</option>
+                  <option value={6}>Tipe VI (Gelap / -4.5% SpO₂)</option>
                 </select>
               </div>
 

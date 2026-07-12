@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import joblib
+import os
 
 class SessionTracker:
     def __init__(self, patient_id=8888, birth_weight_g=3100.0, gestational_age_weeks=38, apgar_score_5min=9):
@@ -12,6 +13,21 @@ class SessionTracker:
         self.apgar_score_5min = apgar_score_5min
         self.sga = 0
         self.calculate_sga()
+        
+        # Fitzpatrick Skin Tone Scale (1-6)
+        self.fitzpatrick_scale = 1
+        
+        # Load calibration coefficients
+        import json
+        import os
+        self.calibrations = {}
+        config_path = os.path.join(os.path.dirname(__file__), '..', 'Sensors', 'calibration_coeffs.json')
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, 'r') as f:
+                    self.calibrations = json.load(f)
+            except Exception as e:
+                print(f"[SessionTracker] Error loading calibrations: {e}")
         
         # Delayed Lab/Clinical Inputs
         self.mean_blood_pressure = np.nan
@@ -47,7 +63,7 @@ class SessionTracker:
         
     def update_demographics(self, birth_weight_g=None, gestational_age_weeks=None, apgar_score_5min=None,
                            mean_blood_pressure=None, lowest_serum_ph=None, po2_fio2_ratio=None,
-                           seizures=None, urine_output_ml_kg_hr=None):
+                           seizures=None, urine_output_ml_kg_hr=None, fitzpatrick_scale=None):
         if birth_weight_g is not None:
             self.birth_weight_g = float(birth_weight_g)
         if gestational_age_weeks is not None:
@@ -67,6 +83,8 @@ class SessionTracker:
             self.seizures = int(seizures)
         if urine_output_ml_kg_hr is not None:
             self.urine_output_ml_kg_hr = float(urine_output_ml_kg_hr)
+        if fitzpatrick_scale is not None:
+            self.fitzpatrick_scale = max(1, min(6, int(fitzpatrick_scale)))
             
     def update_sensors(self, weight_grams=None, length_cm=None, temperature_celsius=None,
                        heart_rate_bpm=None, spo2_percent=None):
@@ -97,6 +115,15 @@ class SessionTracker:
         
     def get_lowest_spo2(self):
         return int(np.min(self.spo2_values)) if self.spo2_values else 98
+
+    def get_calibrated_spo2(self):
+        raw_spo2 = self.get_lowest_spo2()
+        offsets = self.calibrations.get('fitzpatrick', {
+            "1": 0.0, "2": 0.0, "3": 0.0, "4": -1.5, "5": -3.0, "6": -4.5
+        })
+        offset = offsets.get(str(self.fitzpatrick_scale), 0.0)
+        corrected_spo2 = raw_spo2 + offset
+        return min(100.0, max(0.0, corrected_spo2))
 
     def calculate_snappe_ii(self):
         # SNAPPE-II Clinical scoring rules implementation
@@ -148,14 +175,16 @@ class SessionTracker:
             'current_length_cm': self.current_length_cm,
             'lowest_temperature_celsius': self.lowest_temp_c,
             'avg_heart_rate_bpm': self.get_avg_heart_rate(),
-            'lowest_spo2_percent': self.get_lowest_spo2(),
+            'lowest_spo2_percent': self.get_calibrated_spo2(),
             'urine_output_ml_kg_hr': self.urine_output_ml_kg_hr,
             'mean_blood_pressure': self.mean_blood_pressure,
             'po2_fio2_ratio': self.po2_fio2_ratio,
             'lowest_serum_ph': self.lowest_serum_ph,
             'seizures': self.seizures,
             'sga': self.sga,
-            'apgar_score_5min': self.apgar_score_5min
+            'apgar_score_5min': self.apgar_score_5min,
+            'birth_weight_g': self.birth_weight_g,
+            'gestational_age_weeks': self.gestational_age_weeks
         }
         
         df_input = pd.DataFrame([data])[feature_cols]
@@ -193,7 +222,7 @@ class SessionTracker:
                 'current_length_cm': self.current_length_cm,
                 'lowest_temperature_celsius': self.lowest_temp_c,
                 'avg_heart_rate_bpm': self.get_avg_heart_rate(),
-                'lowest_spo2_percent': self.get_lowest_spo2(),
+                'lowest_spo2_percent': self.get_calibrated_spo2(),
                 'urine_output_ml_kg_hr': self.urine_output_ml_kg_hr if not np.isnan(self.urine_output_ml_kg_hr) else 2.5
             }
             df_clf = pd.DataFrame([iot_data])[['current_weight_g', 'current_length_cm', 'lowest_temperature_celsius', 'avg_heart_rate_bpm', 'lowest_spo2_percent', 'urine_output_ml_kg_hr']]

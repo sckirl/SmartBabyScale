@@ -12,6 +12,7 @@ This layer translates raw, noisy telemetry into actionable medical intelligence.
 *   **[The Pivot](./The%20Pivot.md)**: Explains the shift from binary classification (`is_unstable`) to true Regression (predicting the exact continuous 0-162 severity score).
 *   **[Fault Tolerance Plan](./Fault%20Tolerance%20Plan.md)**: How we use Artificial Noise Injection (Data Dropout) to train XGBoost as an intelligent imputer. When a physical sensor dies or a nurse forgets to input lab data, the ML model patches the gap using proxy correlations (e.g., inferring missing SGA from raw Weight).
 *   **[False Negative Mitigation](./False%20Negative%20Mitigation.md)**: The Asymmetric Loss Function strategy. We heavily weight training samples by severity so that when data is missing, the AI defaults to a *safe/severe* prediction rather than a *healthy/0* prediction, saving lives.
+*   **[[Domain Adaptation]]**: Explains the Transductive Transfer Learning (KMM/KLIEP) frameworks and SKI 2023 math used to bridge the generalization gap between the MIMIC-III (Boston NICU) training data and the rural Indonesian (Puskesmas) target demographics.
 *   *Key Code:* `MachineLearning/SmartBabyScale_Training.ipynb`
 
 ## 3. 🏥 Clinical Logic & UI Layer
