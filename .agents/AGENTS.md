@@ -90,15 +90,26 @@ When tracing information flow or editing the system, pay special attention to th
 
 ## 🛠️ Workflows & Usage
 
-### To audit the research:
-Search the files using regex or read the individual `.md` notes. Every note contains:
-*   `CONFIDENCE` (Extracted/Inferred)
-*   `GOD_NODES` / `SURPRISING_CONNECTIONS`
-*   `KEY FINDINGS` (Bullet points of backed facts)
-*   `PRIMARY SOURCES` (Citations with verified URLs/DOIs)
-*   `SIGNIFICANCE` (Detailed application to the SmartBabyScale system)
+### 1. How to Navigate the BRAIN (Knowledge Graph)
+*   **Start at the Center:** Always begin by reading the master index file: **[[BRAIN/Index.md]]**. This acts as the map of MOCs (Maps of Content), linking research theory directly to production code files.
+*   **Follow the Relational Edges:** Rather than reading code blindly, traverse the `RELATIONS` metadata defined in each note. The relationship types are strictly classified:
+    - `implements::[[Node]]` (e.g. `Sensor Infrastructure.md` implements `pi_hardware_reader.py`)
+    - `derived_from::[[Node]]` (e.g. `urine_output` is derived from `HX711 weight`)
+    - `validates::[[Node]]` (e.g. `test_sensors.py` validates `calibration_coeffs.json`)
+*   **Source Anchoring:** Never create or modify a node in the graph without anchoring it to a verified primary source (under the `PRIMARY SOURCES` section). Every claim must have an accessible URL or a registered DOI.
 
-### To clean up the paper draft:
+### 2. How to Continue the Project Flawlessly
+When taking over this workspace, future agents must follow this verification lifecycle:
+1.  **Read Active Task Lists:** Locate the current project plans in **`tasks/plan.md`** and execution checklist in **`tasks/todo.md`**.
+2.  **Verify Hardware Configurations:** Calibrations are stored in **`Sensors/calibration_coeffs.json`**. Verify that modifications here map to equations in `pi_hardware_reader.py` (ultrasonic sound speed, non-contact temp conductivity, and Fitzpatrick SpO₂ offsets).
+3.  **Execute the Test Suite:**
+    - Run the sensor signal processing tests: `python3 -m unittest test_sensors.py` inside `Sensors/`.
+    - Run the edge ML model pipeline integration check: `python3 test_models.py` inside `Sensors/`.
+    - Run the lab sparsity stress test: `python3 evaluate_sparsity.py` inside `MachineLearning/`.
+    - Run the classifier ROC-AUC validation: `python3 classifier_validation.py` inside `MachineLearning/`.
+4.  **Keep the Brain Sync'd:** When code changes affect sensor math or validation metrics, immediately update the corresponding note (e.g., `Sensor Infrastructure.md` or `Fault Tolerance Plan.md`) and rerun `SmartBabyScale_Training.ipynb` end-to-end to refresh model binaries.
+
+### 3. To clean up the paper draft:
 Use the **Priority Action Checklist** inside `[[TRIPOD+AI 2024 Reporting Guidelines]]` and `[[Clinical vs Statistical Significance in Neonatal Studies]]` to correct the draft sections, ensuring all R², RMSE, and sensor margins are backed by these verified notes.
 
 ---

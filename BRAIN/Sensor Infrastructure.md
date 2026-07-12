@@ -70,6 +70,15 @@ The model will use these 6 non-invasive surface vitals to **predict the clinical
   * *Clamping:* Corrected values clamped strictly to $[0.0\%, 100.0\%]$.
 * **PPG Bandpass Filtering:** Apply a 4th-order digital Butterworth bandpass filter ($0.8\text{ Hz}$ to $4.0\text{ Hz}$) to reject low-frequency respiratory drift and high-frequency motion artifacts.
 
+### 4.5 Bedside I2C OLED Display (SSD1306)
+* **Local Visual Feedback:** An SSD1306 (128x64 pixels) OLED display is integrated into the I2C bus at default address `0x3C` (sharing SCL/SDA with temp and PPG sensors).
+* **Bedside Readout:** Generates a real-time, 5-line status display containing:
+  - Line 1: Weight ($g$)
+  - Line 2: Length ($cm$)
+  - Line 3: Heart Rate ($bpm$)
+  - Line 4: Calibrated SpO₂ ($\%$) and Core Temp ($^\circ C$)
+  - Line 5: ML Instability Triage Risk Level and Probability ($\%$)
+
 ---
 
 ## 5. Primary Sources

@@ -27,6 +27,12 @@ Pinout Configuration (Raspberry Pi 5):
    - GND  -> GND (Pin 20)
    - SCL  -> SCL/GPIO 3 (Pin 5)
    - SDA  -> SDA/GPIO 2 (Pin 3)
+
+5. SSD1306 OLED Display (128x64 - I2C)
+   - VCC  -> 3.3V (Pin 1 or 17 - Shares 3.3V power rails)
+   - GND  -> GND (Pin 9, 14, 20 or 25 - Shares ground reference)
+   - SCL  -> SCL/GPIO 3 (Pin 5 - Shares SCL bus line)
+   - SDA  -> SDA/GPIO 2 (Pin 3 - Shares SDA bus line)
 ---------------------------------------------------------
 """
 
@@ -78,6 +84,16 @@ try:
 except ImportError:
     ON_PI = False
     print("[WARNING] Raspberry Pi GPIO libraries not found. Running in hardware mock test mode.")
+
+# Try loading SSD1306 OLED and Pillow libraries for local display (ponytail: safe imports)
+try:
+    import adafruit_ssd1306
+    from PIL import Image, ImageDraw, ImageFont
+    HAS_OLED = True
+    print("[HARDWARE] OLED display libraries loaded successfully.")
+except ImportError:
+    HAS_OLED = False
+    print("[WARNING] OLED display libraries (adafruit-circuitpython-ssd1306/Pillow) not found.")
 
 # Socket.IO connection to Next.js
 sio = socketio.Client()
@@ -161,13 +177,33 @@ def init_sensors():
         sensors['ultrasonic'] = DistanceSensor(echo=24, trigger=23)
         
         print("[HARDWARE] Initializing I2C Bus (SDA=2, SCL=3)...")
-        # sensors['i2c'] = busio.I2C(board.SCL, board.SDA)
+        sensors['i2c'] = busio.I2C(board.SCL, board.SDA)
         # sensors['mlx'] = adafruit_mlx90614.MLX90614(sensors['i2c'])
         # sensors['max30102'] = MAX30102()
         
         print("[HARDWARE] Initializing HX711 on GPIO 5/6...")
         # sensors['hx711'] = HX711(dout_pin=5, pd_sck_pin=6)
         # sensors['hx711'].set_scale_ratio(114.2) # Needs physical calibration
+
+    # Initialize OLED if libraries are present (ponytail: optional hardware support)
+    if HAS_OLED and ON_PI:
+        try:
+            if 'i2c' not in sensors:
+                import board
+                import busio
+                sensors['i2c'] = busio.I2C(board.SCL, board.SDA)
+            print("[HARDWARE] Initializing SSD1306 OLED (128x64) on address 0x3C...")
+            sensors['oled'] = adafruit_ssd1306.SSD1306_I2C(128, 64, sensors['i2c'], addr=0x3C)
+            # Clear display
+            sensors['oled'].fill(0)
+            sensors['oled'].show()
+            # Create blank image drawing canvas
+            sensors['oled_image'] = Image.new("1", (128, 64))
+            sensors['oled_draw'] = ImageDraw.Draw(sensors['oled_image'])
+            sensors['oled_font'] = ImageFont.load_default()
+        except Exception as e:
+            print(f"[WARNING] Failed to initialize SSD1306 OLED display: {e}")
+            
     return sensors
 
 # Buffer to hold 2 seconds of data (20 samples at 10 SPS)
@@ -359,11 +395,58 @@ def hardware_loop():
             'prediction': pred
         }
         
-        # 4. Blast to UI
+        # 4. Blast to UI & Print Live Bedside Dashboard
         if sio.connected:
             sio.emit('sensor_data', payload)
-            print(f"[HW] W:{w:.1f}g | L:{l:.1f}cm | T:{t:.1f}C | HR:{hr} | SpO2:{spo2}% -> Sent to UI")
             
+        # Clear screen and move cursor to top-left (ponytail: in-place terminal override)
+        print("\033[H\033[J", end="")
+        print("=======================================================")
+        print(" SmartBabyScale - IoT Hardware Interface Active")
+        print("=======================================================")
+        print(f" Status:        {'CONNECTED' if sio.connected else 'DISCONNECTED'}")
+        print(f" Patient ID:    {session.patient_id} (GA: {session.gestational_age_weeks}w, BW: {session.birth_weight_g}g)")
+        print("-------------------------------------------------------")
+        print(f" Weight:        {session.current_weight_g:.1f} g  (Outlier-filtered & Calibrated)")
+        print(f" Length:        {session.current_length_cm:.1f} cm (Speed-of-sound compensated)")
+        print(f" Temperature:   {session.current_temp_c:.1f} C   (Skin-to-core imputed)")
+        print(f" Heart Rate:    {session.get_avg_heart_rate()} bpm (Moving average)")
+        print(f" SpO2:          {session.get_calibrated_spo2():.1f} %   (Fitzpatrick-corrected)")
+        print("-------------------------------------------------------")
+        prob_val = pred.get('xgboost', {}).get('instability_probability', 0.0)
+        risk_lvl = pred.get('risk_level', 'Low')
+        print(f" SNAPPE-II Score: {snappe}")
+        print(f" Triage Risk:     {risk_lvl} ({prob_val*100:.1f}%)")
+        print("=======================================================")
+            
+        # 5. Update local SSD1306 OLED display (ponytail: bedside visual readout)
+        if 'oled' in sensors:
+            try:
+                draw = sensors['oled_draw']
+                oled = sensors['oled']
+                font = sensors['oled_font']
+                image = sensors['oled_image']
+                
+                # Clear display canvas
+                draw.rectangle((0, 0, 128, 64), outline=0, fill=0)
+                
+                # Extract classification risk outputs
+                prob_val = pred.get('xgboost', {}).get('instability_probability', 0.0)
+                risk_lvl = pred.get('risk_level', 'Low')
+                
+                # Draw telemetry metrics lines
+                draw.text((0, 0),  f"Weight: {session.current_weight_g:.1f} g", font=font, fill=255)
+                draw.text((0, 12), f"Length: {session.current_length_cm:.1f} cm", font=font, fill=255)
+                draw.text((0, 24), f"HR: {session.get_avg_heart_rate()} bpm", font=font, fill=255)
+                draw.text((0, 36), f"SpO2: {session.get_calibrated_spo2():.1f} %", font=font, fill=255)
+                draw.text((0, 48), f"Risk: {risk_lvl} ({prob_val*100:.1f}%)", font=font, fill=255)
+                
+                # Push canvas to the physical screen
+                oled.image(image)
+                oled.show()
+            except Exception as e:
+                print(f"[WARNING] OLED display update failed: {e}")
+
         time.sleep(2)
 
 if __name__ == '__main__':
