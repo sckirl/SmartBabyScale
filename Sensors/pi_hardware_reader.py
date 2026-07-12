@@ -91,9 +91,9 @@ try:
     from PIL import Image, ImageDraw, ImageFont
     HAS_OLED = True
     print("[HARDWARE] OLED display libraries loaded successfully.")
-except ImportError:
+except Exception as e:
     HAS_OLED = False
-    print("[WARNING] OLED display libraries (adafruit-circuitpython-ssd1306/Pillow) not found.")
+    print(f"[WARNING] OLED display libraries failed to load ({e}). OLED display disabled.")
 
 # Socket.IO connection to Next.js
 sio = socketio.Client()
@@ -109,6 +109,12 @@ is_ml_loaded = False
 
 def load_ml_assets():
     global scaler, svm_model, xgb_model, rf_model, feature_cols, is_ml_loaded
+    if is_ml_loaded:
+        return
+    if not HAS_JOBLIB:
+        print("[HARDWARE] ML model files not loaded (joblib missing). Using clinical rule fallbacks.")
+        is_ml_loaded = False
+        return
     models_dir = os.path.join(project_root, 'MachineLearning', 'models')
     
     scaler_path = os.path.join(models_dir, 'scaler.joblib')
