@@ -100,5 +100,31 @@ class TestSmartBabyScaleSensors(unittest.TestCase):
         # Verify the filtered signal has reduced noise power
         self.assertEqual(len(filtered), len(ppg_signal))
 
+    def test_load_ml_assets_idempotency(self):
+        import Sensors.pi_hardware_reader as reader
+        from unittest.mock import patch
+        
+        # Save original state
+        orig_is_ml_loaded = reader.is_ml_loaded
+        
+        try:
+            # Case 1: Already loaded. joblib.load should NOT be called.
+            reader.is_ml_loaded = True
+            with patch('joblib.load') as mock_load:
+                reader.load_ml_assets()
+                mock_load.assert_not_called()
+                
+            # Case 2: Not loaded. joblib.load should be called to load models.
+            reader.is_ml_loaded = False
+            with patch('joblib.load') as mock_load, \
+                 patch('os.path.exists', return_value=True):
+                reader.load_ml_assets()
+                self.assertEqual(mock_load.call_count, 5)
+                self.assertTrue(reader.is_ml_loaded)
+                
+        finally:
+            # Restore original state
+            reader.is_ml_loaded = orig_is_ml_loaded
+
 if __name__ == '__main__':
     unittest.main()
