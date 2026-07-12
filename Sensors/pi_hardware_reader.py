@@ -109,8 +109,6 @@ is_ml_loaded = False
 
 def load_ml_assets():
     global scaler, svm_model, xgb_model, rf_model, feature_cols, is_ml_loaded
-    if is_ml_loaded:
-        return
     models_dir = os.path.join(project_root, 'MachineLearning', 'models')
     
     scaler_path = os.path.join(models_dir, 'scaler.joblib')
@@ -452,24 +450,19 @@ def hardware_loop():
         time.sleep(2)
 
 if __name__ == '__main__':
-    # Load ML assets immediately at startup so they are available offline
-    load_ml_assets()
-
-    # Try connecting to the Web Interface in a background thread to allow offline/local-only mode
-    def connection_thread():
-        while True:
-            try:
-                sio.connect('http://localhost:3777')
-                break
-            except socketio.exceptions.ConnectionError:
-                time.sleep(2)
-
-    conn_thread = threading.Thread(target=connection_thread, daemon=True)
-    conn_thread.start()
-
     try:
+        # =========================================================================
+        # 🌐 CONNECTION POINT: RASPBERRY PI TO NEXT.JS SERVER
+        # =========================================================================
+        # 1. Local Testing: If running the Node server on the Pi itself, use 'localhost'
+        # 2. Local Network: If Node server is on your Mac/Laptop, use your Mac's local IP (e.g., 'http://192.168.1.15:3777')
+        # 3. Cloud/Dokploy: If Node server is deployed, use the public domain (e.g., 'https://api.yourdomain.com')
+        # =========================================================================
+        sio.connect('http://localhost:3777')
         hardware_loop()
+    except socketio.exceptions.ConnectionError:
+        print("[ERROR] Could not connect to Web Interface.")
+        print("Please ensure 'npm run dev' is running on port 3777.")
     except KeyboardInterrupt:
         print("\n[SHUTDOWN] Terminating hardware reader...")
-        if sio.connected:
-            sio.disconnect()
+        sio.disconnect()
